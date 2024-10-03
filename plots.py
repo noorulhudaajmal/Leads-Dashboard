@@ -36,7 +36,7 @@ def leads_by_location(data):
     fig.update_layout(
         title="Leads by Location",
         margin=dict(t=50, l=0, r=0, b=0),
-        height=400
+        height=500
     )
 
     return fig
@@ -104,9 +104,9 @@ def property_units_breakdown(data):
 
 
 def lot_area_treemap(data):
-    city_lot_area = data.groupby('Ort')['Grundstueckflaeche'].sum().reset_index()
+    city_lot_area = data.groupby('bundesland')['Grundstueckflaeche'].sum().reset_index()
     fig = go.Figure(go.Treemap(
-        labels=city_lot_area['Ort'],
+        labels=city_lot_area['bundesland'],
         parents=[''] * len(city_lot_area),
         values=city_lot_area['Grundstueckflaeche'],
         textinfo='label+value',
@@ -114,7 +114,7 @@ def lot_area_treemap(data):
     ))
 
     fig.update_layout(
-        title="Sum of Lot Area by City",
+        title="Sum of Lot Area by State",
         margin=dict(t=50, l=0, r=0, b=0),
         height=500
     )
@@ -209,12 +209,13 @@ def conversion_channels_dist(data):
         hovertemplate='<b>%{label}</b> <br>Total Conversions= %{value} (%{percent})<extra></extra>',
     ))
 
+    fig = format_hover_layout(fig)
     fig.update_layout(
         title='Conversion Channels Distribution',
         legend=dict(orientation="h", xanchor='center', x=0.45, y=-0.15),
-        margin=dict(t=50, l=0, r=0, b=0)
+        margin=dict(t=50, l=0, r=0, b=0),
+        height=350
     )
-    fig = format_hover_layout(fig)
 
     return fig
 
@@ -340,3 +341,36 @@ def property_condition_map(row):
     return fig
 
 
+def leads_registration_overtime(data):
+    data['Mon-Year'] = data['Created_at'].dt.strftime('%b-%Y')
+    data = data.groupby('Mon-Year', observed=False)['Id'].count().reset_index()
+    data = data.rename(columns={'Id': 'leads_count'})
+    data['Mon-Year'] = pd.to_datetime(data['Mon-Year'], format='%b-%Y')
+
+    data = data.sort_values(by='Mon-Year')
+    data['Mon-Year'] = data['Mon-Year'].dt.strftime('%b-%Y')
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=data['Mon-Year'],
+        y=data['leads_count'],
+        mode='lines+markers+text',
+        text=data['leads_count'],
+        textposition='top center',
+        fill='tozeroy',
+        fillcolor="#9CC1C1",
+        line=dict(color='#094780', width=4),
+        marker=dict(color='#094780', size=12),
+        hovertemplate='Registered Leads= %{text}<extra></extra>',
+    ))
+
+    fig = format_hover_layout(fig)
+    fig.update_layout(
+        height=350,
+        title="Leads Trend",
+        xaxis_title="Time",
+        yaxis_title="Leads Count",
+        yaxis_range=[0, data['leads_count'].max() + 10],
+    )
+
+    return fig

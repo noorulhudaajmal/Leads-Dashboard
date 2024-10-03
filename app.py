@@ -5,7 +5,7 @@ from filters import get_filters_and_data
 from streamlit_option_menu import option_menu as option_menu
 from plots import leads_by_location, property_type_breakdown, property_units_breakdown, lot_area_treemap, \
     residential_units_pie_chart, commercial_units_pie_chart, lead_count_pie_chart, features_map, property_condition_map, \
-    conversion_channels_dist, features_table
+    conversion_channels_dist, features_table, leads_registration_overtime
 from utils import process_data, verify_password
 from streamlit_gsheets import GSheetsConnection
 from auth import authenticate_user, handle_authentication_status
@@ -86,6 +86,9 @@ if authentication_status:
         background-position: center;  
         background-repeat: no-repeat;
     }
+    iframe > .element-container{
+    display: None;
+    }
     </style>
     """, unsafe_allow_html=True)
     menu_options = ['Login Required']
@@ -118,14 +121,17 @@ if authentication_status:
         row_2[2].plotly_chart(commercial_units_pie_chart(df), use_container_width=True)
 
         row_3 = st.columns((4,3))
-        row_3[0].plotly_chart(property_type_breakdown(df), use_container_width=True)
-        row_3[1].plotly_chart(property_units_breakdown(df), use_container_width=True)
+        row_3[0].plotly_chart(leads_registration_overtime(df), use_container_width=True)
+        row_3[1].plotly_chart(conversion_channels_dist(df), use_container_width=True)
 
-        row_4 = st.columns((4, 3))
-        row_4[0].plotly_chart(leads_by_location(df), use_container_width=True)
-        row_4[1].plotly_chart(conversion_channels_dist(df), use_container_width=True)
+        row_4 = st.columns((4,3))
+        row_4[0].plotly_chart(property_type_breakdown(df), use_container_width=True)
+        row_4[1].plotly_chart(property_units_breakdown(df), use_container_width=True)
 
-        st.plotly_chart(lot_area_treemap(df), use_container_width=True)
+        row_5 = st.columns((4, 3))
+        row_5[0].plotly_chart(lot_area_treemap(df), use_container_width=True)
+        row_5[1].plotly_chart(leads_by_location(df), use_container_width=True)
+
 
     if menu == "Leads Features":
         filters_row = st.columns((1,5))
@@ -152,6 +158,8 @@ if authentication_status:
                 row_2 = st.columns(2)
                 row_2[0].plotly_chart(features_table(row), use_container_width=True)
                 row_2[1].plotly_chart(property_condition_map(row), use_container_width=True)
+
+                st.write("---")
 
         else:
             st.write("No properties found for the selected lead.")

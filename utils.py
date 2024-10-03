@@ -23,7 +23,7 @@ def process_data(data):
         'Above 3000 sqm'
     ]
     data['property_area_range'] = pd.cut(data['Grundstueckflaeche'], bins=living_area_bins, labels=living_area_labels)
-
+    data['Created_at'] = pd.to_datetime(data['Created_at'], errors='coerce')
     return data
 
 
