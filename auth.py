@@ -2,11 +2,11 @@ import streamlit as st
 import streamlit_authenticator as stauth
 import pandas as pd
 
-def authenticate_user():
+def authenticate_user(users_df):
     """
     handles user authentication using Streamlit Authenticator.
     """
-    users_df = pd.read_csv('data/users2.csv')
+    # users_df = pd.read_csv('data/users2.csv')
 
     names = list(users_df['Name'].str.strip())
     usernames = list(users_df['Email'].str.strip())

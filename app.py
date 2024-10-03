@@ -72,7 +72,7 @@ users_df = conn.read(worksheet='users')
 data = process_data(data)
 
 # ------------------------------- Authentication --------------------------------
-authenticator, authentication_status, name, username = authenticate_user()
+authenticator, authentication_status, name, username = authenticate_user(users_df)
 handle_authentication_status(authenticator, authentication_status, name)
 
 role=None
