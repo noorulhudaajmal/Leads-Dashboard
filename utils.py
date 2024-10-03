@@ -6,7 +6,7 @@ import pandas as pd
 def process_data(data):
     if data['Grundstueckflaeche'].isnull().any():
         mean_area = data['Grundstueckflaeche'].mean()
-        data['Grundstueckflaeche'].fillna(mean_area, inplace=True)
+        data['Grundstueckflaeche'] = data['Grundstueckflaeche'].fillna(mean_area)
 
     data['Baujahr'] = pd.to_numeric(data['Baujahr'], errors='coerce')
     data['Baujahr'] = data['Baujahr'].dropna().astype(int).round()

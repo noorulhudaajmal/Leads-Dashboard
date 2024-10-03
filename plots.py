@@ -258,7 +258,7 @@ def features_table(row):
     df = pd.DataFrame(list(feature_values.items()), columns=['Feature', 'Presence'])
     df['Presence'] = df['Presence'].fillna('Nein')  # Fill NaN with 'Nein'
 
-    colors = df['Presence'].map({'Ja': '#52b788', 'Nein': '#e76f51'})
+    colors = df['Presence'].map({'Ja': '#a3b18a', 'Nein': '#f9844a'})
 
     fig = go.Figure(data=[go.Table(
         header=dict(values=['Feature', 'Presence'],
