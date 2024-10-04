@@ -1,15 +1,16 @@
 import pandas as pd
 import streamlit as st
-
 from filters import get_filters_and_data
+from streamlit_folium import folium_static
 from streamlit_option_menu import option_menu as option_menu
 from plots import leads_by_location, property_type_breakdown, property_units_breakdown, lot_area_treemap, \
     residential_units_pie_chart, commercial_units_pie_chart, lead_count_pie_chart, features_map, property_condition_map, \
-    conversion_channels_dist, features_table, leads_registration_overtime
+    conversion_channels_dist, features_table, leads_registration_overtime, geographic_listing_analytics, \
+    leads_cluster_map
 from utils import process_data, verify_password
 from streamlit_gsheets import GSheetsConnection
 from auth import authenticate_user, handle_authentication_status
-
+from css.streamlit_ui import main_styles, inner_styles
 pd.options.mode.chained_assignment = None
 
 # -------------------------Page Config----------------------------------------
@@ -19,50 +20,11 @@ st.set_page_config(page_title="Stock Analysis", layout="wide")
 with open("css/style.css") as css:
     st.markdown(f'<style>{css.read()}</style>', unsafe_allow_html=True)
 
-st.markdown("""
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden; height:0;}
-    .block-container {
-      margin-top: 0;
-      padding-top: 0;
-    }
-    .stMetric {
-       background-color: rgba(28, 131, 225, 0.1);
-       border: 1px solid rgba(28, 131, 225, 0.1);
-       padding: 5% 5% 5% 10%;
-       border-radius: 5px;
-       color: rgb(30, 103, 119);
-       overflow-wrap: break-word;
-       height: 100px;
-    }
-    [data-testid="stAppViewContainer"] > .main {
-        background-image: url("https://images.pexels.com/photos/2116721/pexels-photo-2116721.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1");
-        background-size: 100vw 100vh;
-        background-position: center;  
-        background-repeat: no-repeat;
-    }
-    .stPlotlyChart {
-     outline: 5px solid white;
-     border-radius: 10px;
-     # border: 5px solid white;
-     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.20), 0 6px 20px 0 rgba(0, 0, 0, 0.30);
-    }
-    .stForm{
-        width: 350px;
-        padding: 2rem;
-        background-color: #f9f9f9;
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-        border-radius: 8px;
-        margin: 2rem 30vw;
-    }
-    # .stAlertContainer {
-    #     width: 350px;
-    #     margin: auto 30vw;
-    # }
-    </style>
-""", unsafe_allow_html=True)
+st.markdown(main_styles, unsafe_allow_html=True)
+
+# ------------------------------- Data -----------------------------------------
+# data = pd.read_csv("data/df.csv")
+# users_df = pd.read_csv("data/users2.csv")
 
 # ------------------------------- Data Loading ---------------------------------
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -78,34 +40,22 @@ handle_authentication_status(authenticator, authentication_status, name)
 role=None
 
 if authentication_status:
-    st.markdown("""
-    <style>
-    [data-testid="stAppViewContainer"] > .main {
-        background-image: url("");
-        background-size: 100vw 100vh;
-        background-position: center;  
-        background-repeat: no-repeat;
-    }
-    iframe > .element-container{
-    display: None;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown(inner_styles, unsafe_allow_html=True)
     menu_options = ['Login Required']
     role = users_df[users_df['Email'] == username]['Role'].values[0] if authentication_status else None
     if role == "Administrator/in":
-        menu_options = ["Quick Summary", "Leads Features", "Edit Leads"]
+        menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown', 'Geographic Analytics', 'Leads Features']
     elif role == "Mitarbeiter/in":
-        menu_options = ["Quick Summary", "Leads Features"]
+        menu_options = ['Overview', 'Property Breakdown', 'Leads Features']
     elif role == "Trackingpartner":
-        menu_options = ["Leads Features"]
+        menu_options = ['Leads Features']
     else:
         menu_options = ['Login Required']
 
     menu = option_menu(menu_title=None, orientation="horizontal", menu_icon=None,
                        options=menu_options)
 
-    if menu == "Quick Summary":
+    if menu == "Overview":
         df = get_filters_and_data(data)
 
         metrics = st.columns(5)
@@ -120,17 +70,40 @@ if authentication_status:
         row_2[1].plotly_chart(residential_units_pie_chart(df), use_container_width=True)
         row_2[2].plotly_chart(commercial_units_pie_chart(df), use_container_width=True)
 
-        row_3 = st.columns((4,3))
-        row_3[0].plotly_chart(leads_registration_overtime(df), use_container_width=True)
-        row_3[1].plotly_chart(conversion_channels_dist(df), use_container_width=True)
+        row_3 = st.columns((4, 3))
+        row_3[0].plotly_chart(lot_area_treemap(df), use_container_width=True)
+        row_3[1].plotly_chart(leads_by_location(df), use_container_width=True)
 
-        row_4 = st.columns((4,3))
-        row_4[0].plotly_chart(property_type_breakdown(df), use_container_width=True)
-        row_4[1].plotly_chart(property_units_breakdown(df), use_container_width=True)
+    if menu == "Marketing Attribution":
+        df = get_filters_and_data(data)
 
-        row_5 = st.columns((4, 3))
-        row_5[0].plotly_chart(lot_area_treemap(df), use_container_width=True)
-        row_5[1].plotly_chart(leads_by_location(df), use_container_width=True)
+        metrics = st.columns(5)
+        metrics[0].metric(label="Total Leads", value=len(df))
+        metrics[1].metric(label="Total Residential Units", value=round(df['Wohneinheiten'].sum()))
+        metrics[2].metric(label="Total Commercial Units", value=round(df['Gewerbeeinheiten'].sum()))
+        metrics[3].metric(label="Avg. Living Area (sq meters)", value=f"{df['Wohnflaeche'].mean():.2f}")
+        metrics[4].metric(label="Avg. Lot Area (sq meters)", value=f"{df['Grundstueckflaeche'].mean():.2f}")
+
+        row_1 = st.columns((4,3))
+        row_1[0].plotly_chart(leads_registration_overtime(df), use_container_width=True)
+        row_1[1].plotly_chart(conversion_channels_dist(df), use_container_width=True)
+
+    if menu == "Property Breakdown":
+        df = get_filters_and_data(data)
+
+        row_1 = st.columns(2)
+        row_1[0].plotly_chart(property_type_breakdown(df), use_container_width=True)
+        row_1[1].plotly_chart(property_units_breakdown(df), use_container_width=True)
+
+
+    if menu == "Geographic Analytics":
+        df = get_filters_and_data(data)
+
+        row_1 = st.columns((3,5))
+        row_1[0].plotly_chart(geographic_listing_analytics(df), use_container_width=True)
+
+        with row_1[1]:
+            folium_static(leads_cluster_map(df), height=500)
 
 
     if menu == "Leads Features":

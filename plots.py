@@ -1,8 +1,11 @@
 import pandas as pd
 import plotly.graph_objects as go
-
-
+import requests
+import plotly.express as px
+import folium
+from folium.plugins import MarkerCluster
 from utils import format_hover_layout
+
 
 colors = ["#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51", "#84a59d", "#006d77",
           "#f6bd60", "#90be6d", "#577590", "#e07a5f", "#81b29a", "#f2cc8f", "#0081a7"]
@@ -45,16 +48,19 @@ def leads_by_location(data):
 def property_type_breakdown(data):
     type_data = data.groupby(['Objekttyp', 'Haustyp'], observed=False)['Id'].count().reset_index()
     pivot_data = type_data.pivot(index='Objekttyp', columns='Haustyp', values='Id').fillna(0)
+    wrapped_labels = [label.replace(' ', '<br>') if len(label) > 10 else label for label in pivot_data.index]  # Example wrapping logic
 
     fig = go.Figure()
     for i, house_type in enumerate(pivot_data.columns):
         fig.add_trace(go.Bar(
-            x=pivot_data.index,
-            y=pivot_data[house_type],
+            y=pivot_data.index,
+            x=pivot_data[house_type],
             name=house_type,
-            marker_color=colors[i]
+            marker_color=colors[i],
+            orientation='h'
         ))
 
+    fig = format_hover_layout(fig)
     fig.update_layout(
         title="Property Type Breakdown with House Types",
         xaxis_title="Property Type (Objekttyp)",
@@ -62,8 +68,13 @@ def property_type_breakdown(data):
         barmode='stack',
         # legend_title="House Type (Haustyp)",
         legend=dict(orientation="h", xanchor='center', x=0.35, y=-0.25),
+        height=450,
+        yaxis=dict(
+            ticktext=wrapped_labels,  # Use wrapped labels
+            tickvals=pivot_data.index  # Ensure tickvals match index
+        ),
+        hovermode='y unified'
     )
-    fig = format_hover_layout(fig)
 
     return fig
 
@@ -90,15 +101,16 @@ def property_units_breakdown(data):
         marker_color=colors[1],
         orientation='h'
     ))
-
+    fig = format_hover_layout(fig)
     fig.update_layout(
         title="Total Residential and Commercial Units by Property Type",
         xaxis_title="Property Type (Objekttyp)",
         yaxis_title="Total Units",
         barmode='stack',
         legend=dict(orientation="h", xanchor='center', x=0.25, y=-0.25),
+        hovermode='y unified',
+        height=450
     )
-    fig = format_hover_layout(fig)
 
     return fig
 
@@ -374,3 +386,77 @@ def leads_registration_overtime(data):
     )
 
     return fig
+
+
+def geographic_listing_analytics(df):
+    listing_data = df.groupby('bundesland').agg(
+        total_ids=('Id', 'count'),
+        total_lot_area=('Grundstueckflaeche', 'sum')
+    ).reset_index()
+
+    listing_data = listing_data.rename({'total_ids': 'Registered Leads', 'total_lot_area': 'Net Lot Area'}, axis=1)
+
+    url = 'https://raw.githubusercontent.com/isellsoap/deutschlandGeoJSON/main/2_bundeslaender/2_hoch.geo.json'
+    geojson = requests.get(url).json()
+
+    fig = px.choropleth(
+        listing_data,
+        geojson=geojson,
+        locations='bundesland',
+        featureidkey="properties.name",
+        color='Registered Leads',
+        hover_name='bundesland',
+        hover_data=['Registered Leads', 'Net Lot Area'],
+        color_continuous_scale='Viridis',
+        title='Number of Listed Properties by Bundesland'
+    )
+
+    fig = format_hover_layout(fig)
+    fig.update_geos(fitbounds="locations",
+                    visible=False,
+                    projection_scale=10.5,
+                    center={"lat": 51.1657, "lon": 10.4515})
+    fig.update_layout(margin={"r":0,"t":50,"l":0,"b":0}, height=500,
+                      coloraxis_colorbar={
+                          'orientation': 'h',
+                          'xanchor': 'center',
+                          'x': 0.5,
+                          'yanchor': 'bottom',
+                          'y': -0.2
+                      },)
+
+    return fig
+
+
+def leads_cluster_map(df):
+    geojson_url = 'https://raw.githubusercontent.com/isellsoap/deutschlandGeoJSON/main/2_bundeslaender/2_hoch.geo.json'
+    geojson = requests.get(geojson_url).json()
+
+    folium_map = folium.Map(location=[51.1657, 10.4515], zoom_start=6, width='100%', height='100%')
+    marker_cluster = MarkerCluster().add_to(folium_map)
+
+    for _, row in df.iterrows():
+        for feature in geojson['features']:
+            if feature['properties']['name'] == row['bundesland']:
+                geometry_type = feature['geometry']['type']
+                coords = feature['geometry']['coordinates']
+
+                if geometry_type == 'MultiPolygon':
+                    lon, lat = coords[0][0][0]  # [lon, lat] format
+                elif geometry_type == 'Polygon':
+                    lon, lat = coords[0][0]  # [lon, lat] format
+
+                folium.Marker(
+                    location=[lat, lon],
+                    popup=folium.Popup(
+                        f"<b>Lead ID:</b> {row['Id']}<br>"
+                        f"<b>Property Area:</b> {round(row['Grundstueckflaeche'],2)} sqm<br>"
+                        f"<b>Owner Name:</b> {row['Vorname']} {row['Nachname']}",
+                        max_width=300
+                    ),
+                    tooltip=row['Ort']
+                ).add_to(marker_cluster)
+                break
+
+    return folium_map
+
