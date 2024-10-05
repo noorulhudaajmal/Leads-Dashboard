@@ -132,6 +132,6 @@ def format_date(date_value):
     return f"{formatted_day} {date_obj.strftime('%b, %Y')}"
 
 
-def save_data(data, conn):
-    conn.write(data, worksheet='leads', index=False)
+def save_data(df, conn):
+    conn.update(data=df, worksheet='leads')
     # data.to_csv("data/df.csv", index=False)

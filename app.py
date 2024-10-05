@@ -41,11 +41,13 @@ if authentication_status:
     #                 'Geographic Analytics', 'Leads Features', 'Update Leads']
     role = users_df[users_df['Email'] == username]['Role'].values[0] if authentication_status else None
     if role == "Administrator/in":
-        menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown', 'Geographic Analytics', 'Leads Features']
+        menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown',
+                        'Geographic Analytics', 'Leads Features', 'Update Leads']
     elif role == "Mitarbeiter/in":
-        menu_options = ['Overview', 'Property Breakdown', 'Leads Features']
+        menu_options = ['Leads Features', 'Update Leads', 'Property Breakdown',
+                        'Geographic Analytics', ]
     elif role == "Trackingpartner":
-        menu_options = ['Leads Features']
+        menu_options = ['Leads Features', 'Property Breakdown', 'Geographic Analytics']
     else:
         menu_options = ['Login Required']
 
