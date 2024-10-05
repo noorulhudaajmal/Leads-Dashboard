@@ -1,16 +1,13 @@
 import pandas as pd
 import streamlit as st
-from filters import get_filters_and_data
-from streamlit_folium import folium_static
 from streamlit_option_menu import option_menu as option_menu
-from plots import leads_by_location, property_type_breakdown, property_units_breakdown, lot_area_treemap, \
-    residential_units_pie_chart, commercial_units_pie_chart, lead_count_pie_chart, features_map, property_condition_map, \
-    conversion_channels_dist, features_table, leads_registration_overtime, geographic_listing_analytics, \
-    leads_cluster_map
-from utils import process_data, verify_password
+from utils import process_data, save_data
 from streamlit_gsheets import GSheetsConnection
 from auth import authenticate_user, handle_authentication_status
-from css.streamlit_ui import main_styles, inner_styles
+from css.streamlit_ui import main_styles, inner_styles, feature_html
+from views import features_view, geographic_analytics_view, property_breakdown_view, marketing_attribution_view, \
+    summary_view
+
 pd.options.mode.chained_assignment = None
 
 # -------------------------Page Config----------------------------------------
@@ -22,7 +19,7 @@ with open("css/style.css") as css:
 
 st.markdown(main_styles, unsafe_allow_html=True)
 
-# ------------------------------- Data -----------------------------------------
+# # ------------------------------- Data -----------------------------------------
 # data = pd.read_csv("data/df.csv")
 # users_df = pd.read_csv("data/users2.csv")
 
@@ -38,10 +35,10 @@ authenticator, authentication_status, name, username = authenticate_user(users_d
 handle_authentication_status(authenticator, authentication_status, name)
 
 role=None
-
 if authentication_status:
     st.markdown(inner_styles, unsafe_allow_html=True)
-    menu_options = ['Login Required']
+    # menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown',
+    #                 'Geographic Analytics', 'Leads Features', 'Update Leads']
     role = users_df[users_df['Email'] == username]['Role'].values[0] if authentication_status else None
     if role == "Administrator/in":
         menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown', 'Geographic Analytics', 'Leads Features']
@@ -56,83 +53,73 @@ if authentication_status:
                        options=menu_options)
 
     if menu == "Overview":
-        df = get_filters_and_data(data)
-
-        metrics = st.columns(5)
-        metrics[0].metric(label="Total Leads", value=len(df))
-        metrics[1].metric(label="Total Residential Units", value=round(df['Wohneinheiten'].sum()))
-        metrics[2].metric(label="Total Commercial Units", value=round(df['Gewerbeeinheiten'].sum()))
-        metrics[3].metric(label="Avg. Living Area (sq meters)", value=f"{df['Wohnflaeche'].mean():.2f}")
-        metrics[4].metric(label="Avg. Lot Area (sq meters)", value=f"{df['Grundstueckflaeche'].mean():.2f}")
-
-        row_2 = st.columns(3)
-        row_2[0].plotly_chart(lead_count_pie_chart(df), use_container_width=True)
-        row_2[1].plotly_chart(residential_units_pie_chart(df), use_container_width=True)
-        row_2[2].plotly_chart(commercial_units_pie_chart(df), use_container_width=True)
-
-        row_3 = st.columns((4, 3))
-        row_3[0].plotly_chart(lot_area_treemap(df), use_container_width=True)
-        row_3[1].plotly_chart(leads_by_location(df), use_container_width=True)
+        summary_view(data)
 
     if menu == "Marketing Attribution":
-        df = get_filters_and_data(data)
-
-        metrics = st.columns(5)
-        metrics[0].metric(label="Total Leads", value=len(df))
-        metrics[1].metric(label="Total Residential Units", value=round(df['Wohneinheiten'].sum()))
-        metrics[2].metric(label="Total Commercial Units", value=round(df['Gewerbeeinheiten'].sum()))
-        metrics[3].metric(label="Avg. Living Area (sq meters)", value=f"{df['Wohnflaeche'].mean():.2f}")
-        metrics[4].metric(label="Avg. Lot Area (sq meters)", value=f"{df['Grundstueckflaeche'].mean():.2f}")
-
-        row_1 = st.columns((4,3))
-        row_1[0].plotly_chart(leads_registration_overtime(df), use_container_width=True)
-        row_1[1].plotly_chart(conversion_channels_dist(df), use_container_width=True)
+        marketing_attribution_view(data)
 
     if menu == "Property Breakdown":
-        df = get_filters_and_data(data)
-
-        row_1 = st.columns(2)
-        row_1[0].plotly_chart(property_type_breakdown(df), use_container_width=True)
-        row_1[1].plotly_chart(property_units_breakdown(df), use_container_width=True)
-
+        property_breakdown_view(data)
 
     if menu == "Geographic Analytics":
-        df = get_filters_and_data(data)
-
-        row_1 = st.columns((3,5))
-        row_1[0].plotly_chart(geographic_listing_analytics(df), use_container_width=True)
-
-        with row_1[1]:
-            folium_static(leads_cluster_map(df), height=500)
-
+        geographic_analytics_view(data)
 
     if menu == "Leads Features":
-        filters_row = st.columns((1,5))
-        selected_email = filters_row[0].selectbox("Select Email", data['Email'].unique())
-        filtered_data = data[(data['Email'] == selected_email)]
+        features_view(data)
 
-        if not filtered_data.empty:
-            filtered_data = filtered_data.sort_values(by='Baujahr')
-            for idx, row in filtered_data.iterrows():
-                st.write(f"### Property Listing no. {idx}")
+    if menu == "Update Leads":
+        lead_id = st.columns((1,1,5))[1].selectbox(label="Lead Id", options=data['Id'].unique())
 
-                residential_units = row['Wohneinheiten'] if not pd.isna(row['Wohneinheiten']) else 0
-                commercial_units = row['Gewerbeeinheiten'] if not pd.isna(row['Gewerbeeinheiten']) else 0
-                living_area = round(row['Wohnflaeche']) if not pd.isna(row['Wohnflaeche']) else 0
-                lot_area = round(row['Grundstueckflaeche']) if not pd.isna(row['Grundstueckflaeche']) else 0
+        df = data[data['Id']==lead_id]
 
-                metrics_row = st.columns(5)
-                metrics_row[0].metric(label="Year of Construction", value=round(row['Baujahr']))
-                metrics_row[1].metric(label="Residential Units", value=residential_units)
-                metrics_row[2].metric(label="Commercial Units", value=commercial_units)
-                metrics_row[3].metric(label="Living Area (sq meters)", value=living_area)
-                metrics_row[4].metric(label="Lot Area (sq meters)", value=lot_area)
+        row_2 = st.columns((1,5,1))
+        edited_data = row_2[1].data_editor(df.transpose(), num_rows="dynamic",
+                                           use_container_width=True)
+        new_data = edited_data.transpose()
 
-                row_2 = st.columns(2)
-                row_2[0].plotly_chart(features_table(row), use_container_width=True)
-                row_2[1].plotly_chart(property_condition_map(row), use_container_width=True)
+        updated_data = data.copy()
+        updated_data.loc[updated_data['Id'] == lead_id, new_data.columns] = new_data.values
 
-                st.write("---")
+        row_3 = st.columns((5,1,1))
+        if row_3[1].button("Save Changes"):
+            save_data(updated_data, conn)
+            st.success("Data saved successfully!")
+            st.rerun()
 
+        st.write("---")
+        st.subheader("Upload Leads Data")
+        cols = st.columns(2)
+        uploaded_file = cols[0].file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
+
+        if uploaded_file:
+            if uploaded_file.name.endswith('.csv'):
+                new_leads = pd.read_csv(uploaded_file)
+            else:
+                new_leads = pd.read_excel(uploaded_file)
+
+            cols[1].dataframe(new_leads, use_container_width=True)
+
+        if cols[0].button("Add") and uploaded_file:
+            if all(col in data.columns for col in new_leads.columns):
+                log_messages = []
+
+                for index, row in new_leads.iterrows():
+                    if row['Id'] in updated_data['Id'].values:
+                        updated_data.loc[updated_data['Id'] == row['Id'], new_leads.columns] = row.values
+                        log_messages.append(f"Updated Lead ID: {row['Id']}")
+                    else:
+                        updated_data = pd.concat([updated_data, pd.DataFrame([row])], ignore_index=True)
+                        log_messages.append(f"Added Lead ID: {row['Id']}")
+
+
+                save_data(updated_data, conn)
+                cols[0].success("Leads data processed successfully!")
+
+                st.subheader("Log:")
+                for message in log_messages:
+                    cols[0].info(message)
+
+            else:
+                st.error("Uploaded data columns do not match the existing data columns.")
         else:
-            st.write("No properties found for the selected lead.")
+            st.error("No data uploaded.")

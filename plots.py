@@ -265,16 +265,19 @@ def features_map(row):
 
 
 def features_table(row):
-    features = ['Gastwc', 'Vollvermietet', 'Balkon', 'Aufzug', 'Dachgeschoss', 'Keller', 'Bebaut', 'Alleinlage', 'Erschlossen']
+    features = ["100-Tage-Verkaufsgarantie", "Verkaufspreis", "Wertanalyse",
+                "Verrentung", "Bebaut", "Alleinlage", "Erschlossen", 'Gastwc',
+                'Vollvermietet', 'Balkon', 'Aufzug', 'Dachgeschoss', 'Keller']
 
     feature_values = {feature: row[feature] for feature in features}
     df = pd.DataFrame(list(feature_values.items()), columns=['Feature', 'Presence'])
-    df['Presence'] = df['Presence'].fillna('Nein')  # Fill NaN with 'Nein'
 
-    colors = df['Presence'].map({'Ja': '#a3b18a', 'Nein': '#f9844a'})
+    df['Presence'] = df['Presence'].fillna('Nein')
+    df['Presence'] = df['Presence'].map({'Ja': '✔️', 'Nein': '❌'})
+    colors = df['Presence'].map({'✔️': '#a3b18a', '❌': '#fed9b7'})
 
     fig = go.Figure(data=[go.Table(
-        header=dict(values=['Feature', 'Presence'],
+        header=dict(values=['Feature', 'Availability'],
                     fill_color='#264653',
                     font=dict(size=14, color='white', family='ubuntu'),
                     height=50,
@@ -285,16 +288,17 @@ def features_table(row):
                    height=35,
                    align='left'))
     ])
-    fig.update_layout(title='Feature Presence Table',
-                      margin=dict(t=50, l=0, r=0, b=0),
-                      )
+
+    fig.update_layout(title='',
+                      margin=dict(t=20, l=0, r=0, b=0),
+                      height=550)
 
     return fig
 
 
+
 def property_condition_map(row):
     features = ['Dach', 'Fenster', 'Leitungen', 'Heizung', 'Fassade', 'Badezimmer', 'Innenausbau', 'Grundrissgestaltung']
-
     feature_values = {feature: row[feature] for feature in features}
 
     for feature in features:
@@ -313,40 +317,56 @@ def property_condition_map(row):
 
     heatmap_values = [[condition_mapping[feature_values[feature]] for feature in features]]
 
+    # Transposing the heatmap values to make the heatmap vertical
+    heatmap_values = list(map(list, zip(*heatmap_values)))
+
     fig = go.Figure(data=go.Heatmap(
         z=heatmap_values,
-        x=features,
-        y=['Property'],
+        x=['Property'],
+        y=features,
         colorscale=[
-            [0, colors[0]],     #keine
-            [0.25, colors[1]], #'0-5 Jahre'
-            [0.5, colors[2]],  #5-10 Jahre
-            [0.75, colors[3]], #10-15 Jahre
-            [1, colors[4]]     #mehr als 15 Jahre
+            [0, '#d9ed92'],     # keine
+            [0.125, '#b5e48c'], # slight variation
+            [0.25, '#99d98c'],  # '0-5 Jahre'
+            [0.375, '#76c893'], # slight variation
+            [0.5, '#52b69a'],   # '5-10 Jahre'
+            [0.625, '#34a0a4'], # slight variation
+            [0.75, '#168aad'],  # '10-15 Jahre'
+            [0.875, '#1a759f'], # slight variation
+            [1, '#1a759f']      # 'mehr als 15 Jahre'
         ],
         colorbar=dict(
             title='Condition',
             tickvals=[0, 1, 2, 3, 4],
-            ticktext=['keine', '0-5 Jahre', '5-10 Jahre', '10-15 Jahre', 'mehr als 15 Jahre']
+            ticktext=['keine', '0-5 Jahre', '5-10 Jahre', '10-15 Jahre', 'mehr als 15 Jahre'],
+            orientation='h',  # Horizontal color bar
+            yanchor='bottom',
+            y=-0.3  # Adjust position
         ),
+        showscale=False,
         hoverongaps=False,
-        hovertemplate='<b>%{x}</b> <br>%{customdata}<extra></extra>',
-        customdata=[[inverse_condition_mapping[val] for val in row] for row in heatmap_values]
+        hovertemplate='<b>%{y}</b> <br>%{customdata}<extra></extra>',
+        customdata=[[inverse_condition_mapping[val] for val in row] for row in heatmap_values],
+        text=[[inverse_condition_mapping[val] for val in row] for row in heatmap_values],  # Add text to boxes
+        texttemplate="%{text}",  # Display custom text inside each box
+        textfont=dict(color="black", size=14),
     ))
 
     fig.update_layout(
         title='Property Condition',
-        xaxis_title='Features',
-        yaxis_title='',
+        xaxis_title='',
+        yaxis_title='Features',
         yaxis=dict(showgrid=False, zeroline=False, showline=False),
         xaxis=dict(showgrid=False, zeroline=False, showline=False),
+        height=550
     )
 
+    # Add white borders to the boxes
     for i in range(len(features)):
         fig.add_shape(
             type='rect',
-            x0=i - 0.5, x1=i + 0.5,
-            y0=-0.5, y1=0.5,
+            x0=-0.5, x1=0.5,
+            y0=i - 0.5, y1=i + 0.5,
             line=dict(color='white', width=1)
         )
 

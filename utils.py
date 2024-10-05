@@ -1,6 +1,7 @@
 import hashlib
-
 import pandas as pd
+import streamlit as st
+from datetime import datetime
 
 
 def process_data(data):
@@ -55,3 +56,82 @@ def verify_password(input_password, stored_hashed_password):
     # return hashed_input == stored_hashed_password
 
 
+
+def get_lead_info(df):
+    record = df.iloc[0]
+    name = f"{record['Vorname']} {record['Nachname']}"
+    email = record['Email']
+    phone = record['Telefon']
+
+    return name, email, phone
+
+
+def display_lead_metrics(row):
+    lot_area = round(row['Grundstueckflaeche']) if not pd.isna(row['Grundstueckflaeche']) else 0
+    living_area = round(row['Wohnflaeche']) if not pd.isna(row['Wohnflaeche']) else 0
+    business_area = round(row['Geschaeftsflaeche']) if not pd.isna(row['Geschaeftsflaeche']) else 0
+    rental_income = row['Mieteinnahmen (Kaltmiete)'] if not pd.isna(row['Mieteinnahmen (Kaltmiete)']) else 0
+
+    metrics_row = st.columns(5)
+    metrics_row[0].metric(label="Year of Construction", value=round(row['Baujahr']))
+    metrics_row[1].metric(label="Lot Area (sq meters)", value=lot_area)
+    metrics_row[2].metric(label="Living Area (sq meters)", value=living_area)
+    metrics_row[3].metric(label="Business Area (sq meters)", value=business_area)
+    metrics_row[4].metric(label="Rental Income", value=rental_income)
+
+
+def display_plot_metrics(row):
+    residential_units = row['Wohneinheiten'] if not pd.isna(row['Wohneinheiten']) else 0
+    commercial_units = row['Gewerbeeinheiten'] if not pd.isna(row['Gewerbeeinheiten']) else 0
+    num_floors = row['Etagenanzahl'] if not pd.isna(row['Etagenanzahl']) else 0
+    num_rooms = row['Zimmeranzahl'] if not pd.isna(row['Zimmeranzahl']) else 0
+
+    st.metric(label="Residential Units", value=residential_units)
+    st.metric(label="Commercial Units", value=commercial_units)
+    st.metric(label="Number of Floors", value=num_floors)
+    st.metric(label="Number of Rooms", value=num_rooms)
+
+
+def get_lead_location_info(row):
+    """
+    Generate a formatted address from the given row
+    of data, including a clickable Google Maps link.
+    """
+    street = row['Strasse']
+    postal_code = row['Postleitzahl']
+    city = row['Ort']
+    house_number = row['Hausnummer']
+    state = row['bundesland']
+
+    full_address = f"{street} {house_number}, {postal_code} {city}, {state}"
+    google_maps_link = f"https://www.google.com/maps/search/?api=1&query={full_address.replace(' ', '+')}"
+
+    formatted_address = f"""
+    <div style="font-family: Arial, sans-serif; font-size: 14px;">
+        <p> 📍 <a href="{google_maps_link}" target="_blank" style="text-decoration: none; color: blue;">{full_address}</a></p>
+    </div>
+    """
+    formatted_address = f"📍 [{full_address}]({google_maps_link})\n"
+
+    return formatted_address
+
+
+def format_date(date_value):
+    """
+    Format the date from 'YYYY-MM-DD HH:MM:SS' to 'DDth Month, YYYY'
+    """
+    if isinstance(date_value, pd.Timestamp):
+        date_obj = date_value.to_pydatetime()  # Convert Timestamp to datetime
+    else:
+        date_obj = datetime.strptime(date_value, "%Y-%m-%d %H:%M:%S")
+
+    day = date_obj.day
+    suffix = 'th' if 4 <= day <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
+    formatted_day = f"{day}{suffix}"
+
+    return f"{formatted_day} {date_obj.strftime('%b, %Y')}"
+
+
+def save_data(data, conn):
+    conn.write(data, worksheet='leads', index=False)
+    # data.to_csv("data/df.csv", index=False)

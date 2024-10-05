@@ -38,6 +38,9 @@ main_styles = """
         border-radius: 8px;
         margin: 2rem 30vw;
     }
+    .stImage img{
+        border-radius: 10px;
+    }
     # .stAlertContainer {
     #     width: 350px;
     #     margin: auto 30vw;
@@ -59,3 +62,13 @@ inner_styles = """
     }
     </style>
     """
+
+
+feature_html = """
+                <div style="text-align: center; border: 1px solid #bfd5b2; 
+                background: #bfd5b2; border-radius: 10px; margin:5px;padding:2px;">
+                    <h5>{}</h5>
+                    <div style="font-size: 60px;">{}</div>
+                    <p>{}</hp>
+                </div>
+                """
