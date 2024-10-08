@@ -27,7 +27,7 @@ def process_data(data):
     ]
     data['property_area_range'] = pd.cut(data['Grundstueckflaeche'], bins=living_area_bins, labels=living_area_labels)
     data['Created_at'] = pd.to_datetime(data['Created_at'], errors='coerce')
-    data['Postleitzahl_2'] = data['Postleitzahl'].apply(lambda x: f"DE-{x[-2:]}")
+    data['Postleitzahl_2'] = data['Postleitzahl'].apply(lambda x: f"DE-{str(x)[-2:]}")
     return data
 
 
