@@ -11,7 +11,7 @@ from views import features_view, geographic_analytics_view, property_breakdown_v
 pd.options.mode.chained_assignment = None
 
 # -------------------------Page Config----------------------------------------
-st.set_page_config(page_title="Stock Analysis", layout="wide")
+st.set_page_config(page_title="Leads Dashboard", layout="wide")
 
 # -------------------------CSS Styling----------------------------------------
 with open("css/style.css") as css:
@@ -19,39 +19,42 @@ with open("css/style.css") as css:
 
 st.markdown(main_styles, unsafe_allow_html=True)
 
-# # ------------------------------- Data -----------------------------------------
-# data = pd.read_csv("data/df.csv")
-# users_df = pd.read_csv("data/users2.csv")
+# ------------------------------- Data -----------------------------------------
+data = pd.read_csv("data/df.csv")
+users_df = pd.read_csv("data/users2.csv")
 
 # ------------------------------- Data Loading ---------------------------------
-conn = st.connection("gsheets", type=GSheetsConnection)
-data = conn.read(worksheet='leads')
-users_df = conn.read(worksheet='users')
+# conn = st.connection("gsheets", type=GSheetsConnection)
+# data = conn.read(worksheet='leads')
+# users_df = conn.read(worksheet='users')
 
 data = process_data(data)
 
 # ------------------------------- Authentication --------------------------------
-authenticator, authentication_status, name, username = authenticate_user(users_df)
-handle_authentication_status(authenticator, authentication_status, name)
+# authenticator, authentication_status, name, username = authenticate_user(users_df)
+# handle_authentication_status(authenticator, authentication_status, name)
 
 role=None
+authentication_status = True
 if authentication_status:
     st.markdown(inner_styles, unsafe_allow_html=True)
-    # menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown',
-    #                 'Geographic Analytics', 'Leads Features', 'Update Leads']
-    role = users_df[users_df['Email'] == username]['Role'].values[0] if authentication_status else None
-    if role == "Administrator/in":
-        menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown',
-                        'Geographic Analytics', 'Leads Features', 'Update Leads']
-    elif role == "Mitarbeiter/in":
-        menu_options = ['Leads Features', 'Update Leads', 'Property Breakdown',
-                        'Geographic Analytics', ]
-    elif role == "Trackingpartner":
-        menu_options = ['Leads Features', 'Property Breakdown', 'Geographic Analytics']
-    else:
-        menu_options = ['Login Required']
+    menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown',
+                    'Geographic Analytics', 'Leads Features', 'Update Leads']
+    # role = users_df[users_df['Email'] == username]['Role'].values[0] if authentication_status else None
+    # if role == "Administrator/in":
+    #     menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown',
+    #                     'Geographic Analytics', 'Leads Features', 'Update Leads']
+    # elif role == "Mitarbeiter/in":
+    #     menu_options = ['Leads Features', 'Update Leads', 'Property Breakdown',
+    #                     'Geographic Analytics', ]
+    # elif role == "Trackingpartner":
+    #     menu_options = ['Leads Features', 'Property Breakdown', 'Geographic Analytics']
+    # else:
+    #     menu_options = ['Login Required']
 
     menu = option_menu(menu_title=None, orientation="horizontal", menu_icon=None,
+                       icons = ['bi bi-graph-up', 'bi bi-bar-chart', 'bi bi-house',
+                                'bi bi-globe', 'bi bi-person-lines-fill', 'bi bi-arrow-clockwise'],
                        options=menu_options)
 
     if menu == "Overview":
@@ -70,58 +73,75 @@ if authentication_status:
         features_view(data)
 
     if menu == "Update Leads":
-        lead_id = st.columns((1,1,5))[1].selectbox(label="Lead Id", options=data['Id'].unique())
 
-        df = data[data['Id']==lead_id]
-
-        row_2 = st.columns((1,5,1))
-        edited_data = row_2[1].data_editor(df.transpose(), num_rows="dynamic",
-                                           use_container_width=True)
-        new_data = edited_data.transpose()
-
-        updated_data = data.copy()
-        updated_data.loc[updated_data['Id'] == lead_id, new_data.columns] = new_data.values
-
-        row_3 = st.columns((5,1,1))
-        if row_3[1].button("Save Changes"):
-            save_data(updated_data, conn)
-            st.success("Data saved successfully!")
-            st.rerun()
-
-        st.write("---")
-        st.subheader("Upload Leads Data")
-        cols = st.columns(2)
-        uploaded_file = cols[0].file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
-
+        row_1 = st.columns(3)
+        uploaded_file = st.file_uploader("Choose a CSV or Excel file to load data from",
+                                         type=["csv", "xlsx"])
         if uploaded_file:
             if uploaded_file.name.endswith('.csv'):
                 new_leads = pd.read_csv(uploaded_file)
             else:
                 new_leads = pd.read_excel(uploaded_file)
 
-            cols[1].dataframe(new_leads, use_container_width=True)
+            st.dataframe(new_leads, use_container_width=True)
 
-        if cols[0].button("Add") and uploaded_file:
-            if all(col in data.columns for col in new_leads.columns):
-                log_messages = []
-
-                for index, row in new_leads.iterrows():
-                    if row['Id'] in updated_data['Id'].values:
-                        updated_data.loc[updated_data['Id'] == row['Id'], new_leads.columns] = row.values
-                        log_messages.append(f"Updated Lead ID: {row['Id']}")
-                    else:
-                        updated_data = pd.concat([updated_data, pd.DataFrame([row])], ignore_index=True)
-                        log_messages.append(f"Added Lead ID: {row['Id']}")
-
-
-                save_data(updated_data, conn)
-                cols[0].success("Leads data processed successfully!")
-
-                st.subheader("Log:")
-                for message in log_messages:
-                    cols[0].info(message)
-
-            else:
-                st.error("Uploaded data columns do not match the existing data columns.")
         else:
-            st.error("No data uploaded.")
+            row_2 = st.columns((1,5))
+            lead_id = st.selectbox(label="Lead Id", options=data['Id'].unique())
+            df = data[data['Id']==lead_id]
+
+        # lead_id = st.columns((1,1,5))[1].selectbox(label="Lead Id", options=data['Id'].unique())
+        #
+        # df = data[data['Id']==lead_id]
+
+        # row_2 = st.columns((1,5,1))
+        # edited_data = row_2[1].data_editor(df.transpose(), num_rows="dynamic",
+        #                                    use_container_width=True)
+        # new_data = edited_data.transpose()
+        #
+        # updated_data = data.copy()
+        # updated_data.loc[updated_data['Id'] == lead_id, new_data.columns] = new_data.values
+        #
+        # row_3 = st.columns((5,1,1))
+        # if row_3[1].button("Save Changes"):
+        #     save_data(updated_data)
+        #     st.success("Data saved successfully!")
+        #     st.rerun()
+        #
+        # st.write("---")
+        # st.subheader("Upload Leads Data")
+        # cols = st.columns(2)
+        # uploaded_file = cols[0].file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
+
+        # if uploaded_file:
+        #     if uploaded_file.name.endswith('.csv'):
+        #         new_leads = pd.read_csv(uploaded_file)
+        #     else:
+        #         new_leads = pd.read_excel(uploaded_file)
+        #
+        #     cols[1].dataframe(new_leads, use_container_width=True)
+        #
+        # if cols[0].button("Add") and uploaded_file:
+        #     if all(col in data.columns for col in new_leads.columns):
+        #         log_messages = []
+        #
+        #         for index, row in new_leads.iterrows():
+        #             if row['Id'] in updated_data['Id'].values:
+        #                 updated_data.loc[updated_data['Id'] == row['Id'], new_leads.columns] = row.values
+        #                 log_messages.append(f"Updated Lead ID: {row['Id']}")
+        #             else:
+        #                 updated_data = pd.concat([updated_data, pd.DataFrame([row])], ignore_index=True)
+        #                 log_messages.append(f"Added Lead ID: {row['Id']}")
+        #
+        #
+        #         save_data(updated_data)
+        #         cols[0].success("Leads data processed successfully!")
+        #
+        #         st.subheader("Log:")
+        #         for message in log_messages:
+        #             cols[0].info(message)
+        #
+        #     else:
+        #         st.error("Uploaded data columns do not match the existing data columns.")
+        # else:
+        #     st.error("No data uploaded.")

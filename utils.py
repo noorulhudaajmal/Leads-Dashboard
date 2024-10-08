@@ -5,6 +5,8 @@ from datetime import datetime
 
 
 def process_data(data):
+    data = data.dropna(subset=['bundesland', 'Ort', 'Postleitzahl'])
+
     if data['Grundstueckflaeche'].isnull().any():
         mean_area = data['Grundstueckflaeche'].mean()
         data['Grundstueckflaeche'] = data['Grundstueckflaeche'].fillna(mean_area)
@@ -25,6 +27,7 @@ def process_data(data):
     ]
     data['property_area_range'] = pd.cut(data['Grundstueckflaeche'], bins=living_area_bins, labels=living_area_labels)
     data['Created_at'] = pd.to_datetime(data['Created_at'], errors='coerce')
+    data['Postleitzahl_2'] = data['Postleitzahl'].apply(lambda x: f"DE-{x[-2:]}")
     return data
 
 
@@ -42,7 +45,22 @@ def format_hover_layout(fig):
         height=400,
         hovermode="x unified",
         hoverlabel=dict(bgcolor="white", font_color="black",
-                        font_size=12, font_family="Rockwell"))
+                        font_size=12, font_family="Rockwell"),
+        plot_bgcolor='rgba(255, 255, 255, 0.8)',
+        paper_bgcolor='rgba(255, 255, 255, 0.8)',
+        legend=dict(
+            bgcolor='rgba(255, 255, 255, 0)',  # Transparent legend background
+        ),
+        xaxis=dict(
+            showgrid=False,  # Hide x-axis gridlines
+            zeroline=False,  # Hide x-axis zero line
+        ),
+        yaxis=dict(
+            showgrid=False,  # Hide y-axis gridlines
+            zeroline=False,  # Hide y-axis zero line
+        )
+    )
+
     return fig
 
 
@@ -71,13 +89,21 @@ def display_lead_metrics(row):
     living_area = round(row['Wohnflaeche']) if not pd.isna(row['Wohnflaeche']) else 0
     business_area = round(row['Geschaeftsflaeche']) if not pd.isna(row['Geschaeftsflaeche']) else 0
     rental_income = row['Mieteinnahmen (Kaltmiete)'] if not pd.isna(row['Mieteinnahmen (Kaltmiete)']) else 0
+    residential_units = row['Wohneinheiten'] if not pd.isna(row['Wohneinheiten']) else 0
+    commercial_units = row['Gewerbeeinheiten'] if not pd.isna(row['Gewerbeeinheiten']) else 0
+    num_floors = row['Etagenanzahl'] if not pd.isna(row['Etagenanzahl']) else 0
+    num_rooms = row['Zimmeranzahl'] if not pd.isna(row['Zimmeranzahl']) else 0
 
-    metrics_row = st.columns(5)
+    metrics_row = st.columns(9)
     metrics_row[0].metric(label="Year of Construction", value=round(row['Baujahr']))
-    metrics_row[1].metric(label="Lot Area (sq meters)", value=lot_area)
-    metrics_row[2].metric(label="Living Area (sq meters)", value=living_area)
-    metrics_row[3].metric(label="Business Area (sq meters)", value=business_area)
+    metrics_row[1].metric(label="Lot Area (sqm)", value=lot_area)
+    metrics_row[2].metric(label="Living Area (sqm)", value=living_area)
+    metrics_row[3].metric(label="Business Area (sqm)", value=business_area)
     metrics_row[4].metric(label="Rental Income", value=rental_income)
+    metrics_row[5].metric(label="Residential Units", value=residential_units)
+    metrics_row[6].metric(label="Commercial Units", value=commercial_units)
+    metrics_row[7].metric(label="No. of Floors", value=num_floors)
+    metrics_row[8].metric(label="No. of Rooms", value=num_rooms)
 
 
 def display_plot_metrics(row):
@@ -132,6 +158,6 @@ def format_date(date_value):
     return f"{formatted_day} {date_obj.strftime('%b, %Y')}"
 
 
-def save_data(df, conn):
-    conn.update(data=df, worksheet='leads')
-    # data.to_csv("data/df.csv", index=False)
+def save_data(df):
+    # conn.update(data=df, worksheet='leads')
+    df.to_csv("data/df.csv", index=False)

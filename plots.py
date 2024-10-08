@@ -5,7 +5,7 @@ import plotly.express as px
 import folium
 from folium.plugins import MarkerCluster
 from utils import format_hover_layout
-
+import streamlit as st
 
 colors = ["#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51", "#84a59d", "#006d77",
           "#f6bd60", "#90be6d", "#577590", "#e07a5f", "#81b29a", "#f2cc8f", "#0081a7"]
@@ -36,6 +36,8 @@ def leads_by_location(data):
             height=30
         ))]
     )
+    fig = format_hover_layout(fig)
+
     fig.update_layout(
         title="Leads by Location",
         margin=dict(t=50, l=0, r=0, b=0),
@@ -68,7 +70,7 @@ def property_type_breakdown(data):
         barmode='stack',
         # legend_title="House Type (Haustyp)",
         legend=dict(orientation="h", xanchor='center', x=0.35, y=-0.25),
-        height=450,
+        height=500,
         yaxis=dict(
             ticktext=wrapped_labels,  # Use wrapped labels
             tickvals=pivot_data.index  # Ensure tickvals match index
@@ -82,15 +84,32 @@ def property_type_breakdown(data):
 def property_units_breakdown(data):
     units_data = data.groupby('Objekttyp').agg({
         'Wohneinheiten': 'sum',
-        'Gewerbeeinheiten': 'sum'
+        'Gewerbeeinheiten': 'sum',
+        'Id': 'count'
     }).reset_index()
+
+    units_data['Total'] = units_data['Wohneinheiten'] + units_data['Gewerbeeinheiten'] + units_data['Id']
+    units_data = units_data.sort_values(by='Total', ascending=True)
+
+    units_data['Wohneinheiten'] = units_data['Wohneinheiten'].fillna(0)
+    units_data['Gewerbeeinheiten'] = units_data['Gewerbeeinheiten'].fillna(0)
+
+
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
         y=units_data['Objekttyp'],
+        x=units_data['Id'],
+        name='Total Leads',
+        marker_color=colors[0],
+        orientation='h'
+    ))
+
+    fig.add_trace(go.Bar(
+        y=units_data['Objekttyp'],
         x=units_data['Wohneinheiten'],
         name='Residential Units (Wohneinheiten)',
-        marker_color=colors[0],
+        marker_color=colors[1],
         orientation='h'
     ))
 
@@ -98,7 +117,7 @@ def property_units_breakdown(data):
         y=units_data['Objekttyp'],
         x=units_data['Gewerbeeinheiten'],
         name='Commercial Units (Gewerbeeinheiten)',
-        marker_color=colors[1],
+        marker_color=colors[5],
         orientation='h'
     ))
     fig = format_hover_layout(fig)
@@ -109,29 +128,106 @@ def property_units_breakdown(data):
         barmode='stack',
         legend=dict(orientation="h", xanchor='center', x=0.25, y=-0.25),
         hovermode='y unified',
-        height=450
+        height=500
     )
 
     return fig
 
 
 def lot_area_treemap(data):
-    city_lot_area = data.groupby('bundesland')['Grundstueckflaeche'].sum().reset_index()
+    bundesland_data = data.groupby('bundesland').agg(
+        Total_Leads=('Id', 'count'),                  # Count of leads (Id)
+        Total_Cities=('Ort', 'nunique'),              # Count of unique cities (Ort)
+        Total_Lot_Area=('Grundstueckflaeche', 'sum') # Sum of lot area
+    ).reset_index()
     fig = go.Figure(go.Treemap(
-        labels=city_lot_area['bundesland'],
-        parents=[''] * len(city_lot_area),
-        values=city_lot_area['Grundstueckflaeche'],
-        textinfo='label+value',
+        labels=bundesland_data['bundesland'],
+        parents=[''] * len(bundesland_data),
+        values=bundesland_data['Total_Leads'],
+        textinfo='label+value+percent entry',
         hoverinfo='label+value+percent entry',
+        marker=dict(colors=colors),
+        customdata=bundesland_data[['bundesland', 'Total_Cities', 'Total_Leads', 'Total_Lot_Area']],  # Additional data for hover
+        hovertemplate='<b>%{customdata[0]}</b><br><br>' +
+                      'Total Cities: %{customdata[1]}<br>' +
+                      'Total Leads Registered: %{customdata[2]}<br>' +
+                      'Total Lot Area: ' + '%{customdata[3]:.2f}' + ' sqm<extra></extra>'
     ))
+    fig = format_hover_layout(fig)
 
     fig.update_layout(
-        title="Sum of Lot Area by State",
+        title="Total Leads by State",
         margin=dict(t=50, l=0, r=0, b=0),
         height=500
     )
 
     return fig
+
+
+def leads_features_heatmap(df, col):
+    features = ['Dach', 'Fenster', 'Leitungen', 'Heizung', 'Fassade', 'Badezimmer', 'Innenausbau', 'Grundrissgestaltung']
+    df = df[[col] + features]
+    df = df.fillna('keine')
+
+    years_mapping = {
+        "0-5 Jahre": 0,
+        "5-10 Jahre": 5,
+        "10-15 Jahre": 10,
+        "mehr als 15 Jahre": 15,
+        "keine": None
+    }
+
+    def inverse_map(avg_cond):
+        if 0 <= avg_cond < 5:
+            return "0-5 Jahre"
+        elif 5 <= avg_cond < 10:
+            return "5-10 Jahre"
+        if 10 <= avg_cond < 15:
+            return "10-15 Jahre"
+        elif avg_cond >=15:
+            return "mehr als 15 Jahre"
+        else:
+            return "keine"
+
+    for feature in features:
+        df[feature] = df[feature].map(years_mapping)
+
+    heatmap_data = df.groupby(col).mean().reset_index()
+    transposed_data = heatmap_data.set_index(col).T
+
+    fig = go.Figure(data=go.Heatmap(
+        z=transposed_data.values,
+        x=heatmap_data[col],
+        y=transposed_data.index,
+        hovertemplate='<b>%{x}</b><br>Feature: %{y} <br>Avg. Usage: %{customdata}<extra></extra>',
+        customdata=[[inverse_map(val) for val in row] for row in transposed_data.values],
+        colorscale=[
+            [0.0, '#d9ed92'],  # Corresponds to '0-5 Jahre'
+            [0.25, '#99d98c'],  # Corresponds to '5-10 Jahre'
+            [0.5, '#52b69a'],  # Corresponds to '10-15 Jahre'
+            [0.75, '#168aad'],  # Corresponds to 'mehr als 15 Jahre'
+            [1.0, '#184e77'],  # Corresponds to None (keine)
+        ],
+        colorbar=dict(
+            tickvals=[0, 5, 10, 15],
+            ticktext=["0-5 Jahre", "5-10 Jahre", "10-15 Jahre", "mehr als 15 Jahre"],
+            title="Feature Age"
+        ),
+    ))
+
+    fig = format_hover_layout(fig)
+
+    fig.update_layout(
+        title=f'Average Feature Values by {col}',
+        xaxis_title=col,
+        yaxis_title="Features",
+        xaxis=dict(tickmode='array', tickvals=heatmap_data[col], showgrid=False),
+        yaxis=dict(tickmode='array', tickvals=transposed_data.index, showgrid=False),
+        height=500
+    )
+
+    return fig
+
 
 
 def lead_count_pie_chart(data):
@@ -285,13 +381,13 @@ def features_table(row):
         cells=dict(values=[df['Feature'], df['Presence']],
                    fill_color=[['white'] * len(df), colors],
                    font=dict(size=14, color='black', family='ubuntu'),
-                   height=35,
+                   height=40,
                    align='left'))
     ])
 
     fig.update_layout(title='',
-                      margin=dict(t=20, l=0, r=0, b=0),
-                      height=550)
+                      margin=dict(t=25, l=0, r=0, b=0),
+                      height=600)
 
     return fig
 
@@ -358,7 +454,7 @@ def property_condition_map(row):
         yaxis_title='Features',
         yaxis=dict(showgrid=False, zeroline=False, showline=False),
         xaxis=dict(showgrid=False, zeroline=False, showline=False),
-        height=550
+        height=600
     )
 
     # Add white borders to the boxes
@@ -382,6 +478,9 @@ def leads_registration_overtime(data):
     data = data.sort_values(by='Mon-Year')
     data['Mon-Year'] = data['Mon-Year'].dt.strftime('%b-%Y')
 
+    x_min = pd.to_datetime(data['Mon-Year']).min() - pd.DateOffset(months=5)
+    x_max = pd.to_datetime(data['Mon-Year']).max() + pd.DateOffset(months=1)
+
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=data['Mon-Year'],
@@ -403,11 +502,13 @@ def leads_registration_overtime(data):
         xaxis_title="Time",
         yaxis_title="Leads Count",
         yaxis_range=[0, data['leads_count'].max() + 10],
+        xaxis_range=[x_min.strftime('%b-%Y'), x_max.strftime('%b-%Y')]
     )
 
     return fig
 
 
+@st.cache_data
 def geographic_listing_analytics(df):
     listing_data = df.groupby('bundesland').agg(
         total_ids=('Id', 'count'),
@@ -419,7 +520,7 @@ def geographic_listing_analytics(df):
     url = 'https://raw.githubusercontent.com/isellsoap/deutschlandGeoJSON/main/2_bundeslaender/2_hoch.geo.json'
     geojson = requests.get(url).json()
 
-    fig = px.choropleth(
+    fig = px.choropleth_mapbox(
         listing_data,
         geojson=geojson,
         locations='bundesland',
@@ -428,14 +529,20 @@ def geographic_listing_analytics(df):
         hover_name='bundesland',
         hover_data=['Registered Leads', 'Net Lot Area'],
         color_continuous_scale='Viridis',
-        title='Number of Listed Properties by Bundesland'
+        title='Number of Listed Properties by Bundesland',
+        mapbox_style='carto-positron',
+        center={"lat": 51.1657, "lon": 10.4515},
+        zoom=5,
+        opacity=0.8,
+        height=500
     )
 
-    fig = format_hover_layout(fig)
     fig.update_geos(fitbounds="locations",
-                    visible=False,
+                    visible=True,
                     projection_scale=10.5,
                     center={"lat": 51.1657, "lon": 10.4515})
+    fig = format_hover_layout(fig)
+
     fig.update_layout(margin={"r":0,"t":50,"l":0,"b":0}, height=500,
                       coloraxis_colorbar={
                           'orientation': 'h',
@@ -448,6 +555,7 @@ def geographic_listing_analytics(df):
     return fig
 
 
+@st.cache_data
 def leads_cluster_map(df):
     geojson_url = 'https://raw.githubusercontent.com/isellsoap/deutschlandGeoJSON/main/2_bundeslaender/2_hoch.geo.json'
     geojson = requests.get(geojson_url).json()
@@ -479,4 +587,86 @@ def leads_cluster_map(df):
                 break
 
     return folium_map
+
+
+@st.cache_data
+def germany_feature_conditions_choropleth(df):
+    features = ['Dach', 'Fenster', 'Leitungen', 'Heizung', 'Fassade', 'Badezimmer', 'Innenausbau', 'Grundrissgestaltung']
+    df = df[['bundesland'] + features]
+    df = df.fillna('keine')
+
+    years_mapping = {
+        "0-5 Jahre": 0,
+        "5-10 Jahre": 5,
+        "10-15 Jahre": 10,
+        "mehr als 15 Jahre": 15,
+        "keine": None
+    }
+    def inverse_map(avg_cond):
+        if 0 <= avg_cond < 5:
+            return "0-5 Jahre"
+        elif 5 <= avg_cond < 10:
+            return "5-10 Jahre"
+        if 10 <= avg_cond < 15:
+            return "10-15 Jahre"
+        elif avg_cond >= 15:
+            return "mehr als 15 Jahre"
+        else:
+            return "keine"
+
+    for feature in features:
+        df[feature] = df[feature].map(years_mapping)
+
+    avg_feature_data = df.groupby('bundesland').mean().reset_index()
+    avg_feature_data['Avg_Condition'] = avg_feature_data[features].mean(axis=1)
+    avg_feature_data['Condition_Category'] = avg_feature_data['Avg_Condition'].apply(inverse_map)
+
+    url = 'https://raw.githubusercontent.com/isellsoap/deutschlandGeoJSON/main/2_bundeslaender/2_hoch.geo.json'
+    geojson = requests.get(url).json()
+
+    fig = px.choropleth_mapbox(
+        avg_feature_data,
+        geojson=geojson,
+        locations='bundesland',
+        featureidkey="properties.name",
+        color='Avg_Condition',
+        hover_name='bundesland',
+        hover_data={
+            'Condition_Category': True,
+            'Avg_Condition': False
+        },
+        title='Average Feature Condition by Bundesland',
+        color_continuous_scale=[
+            [0.0, '#d9ed92'],  # Corresponds to '0-5 Jahre'
+            [0.25, '#99d98c'],  # Corresponds to '5-10 Jahre'
+            [0.5, '#52b69a'],  # Corresponds to '10-15 Jahre'
+            [0.75, '#168aad'],  # Corresponds to 'mehr als 15 Jahre'
+            [1.0, '#184e77'],  # Corresponds to None (keine)
+        ],
+        mapbox_style="carto-positron",  # Choose mapbox style ("carto-positron", "open-street-map", "satellite-streets")
+        center={"lat": 51.1657, "lon": 10.4515},
+        zoom=5,
+        opacity=0.8
+    )
+
+    fig = format_hover_layout(fig)
+
+    fig.update_layout(
+        mapbox=dict(bearing=-10),
+        coloraxis_colorbar=dict(
+            title="Avg. Feature Condition",
+            tickvals=[0, 5, 10, 15],
+            ticktext=["0-5 Jahre", "5-10 Jahre", "10-15 Jahre", "mehr als 15 Jahre"]
+        ),
+        height=600,
+        margin={"r": 0, "t": 60, "l": 0, "b": 0}
+    )
+
+    # Center map on Germany
+    fig.update_geos(fitbounds="locations", visible=True)
+
+    return fig
+
+
+
 
