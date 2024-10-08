@@ -20,41 +20,45 @@ with open("css/style.css") as css:
 st.markdown(main_styles, unsafe_allow_html=True)
 
 # ------------------------------- Data -----------------------------------------
-data = pd.read_csv("data/df.csv")
-users_df = pd.read_csv("data/users2.csv")
+# data = pd.read_csv("data/df.csv")
+# users_df = pd.read_csv("data/users2.csv")
 
 # ------------------------------- Data Loading ---------------------------------
-# conn = st.connection("gsheets", type=GSheetsConnection)
-# data = conn.read(worksheet='leads')
-# users_df = conn.read(worksheet='users')
+conn = st.connection("gsheets", type=GSheetsConnection)
+data = conn.read(worksheet='leads')
+users_df = conn.read(worksheet='users')
 
 data = process_data(data)
 
 # ------------------------------- Authentication --------------------------------
-# authenticator, authentication_status, name, username = authenticate_user(users_df)
-# handle_authentication_status(authenticator, authentication_status, name)
+authenticator, authentication_status, name, username = authenticate_user(users_df)
+handle_authentication_status(authenticator, authentication_status, name)
 
 role=None
-authentication_status = True
+# authentication_status = True
 if authentication_status:
     st.markdown(inner_styles, unsafe_allow_html=True)
-    menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown',
-                    'Geographic Analytics', 'Leads Features', 'Update Leads']
-    # role = users_df[users_df['Email'] == username]['Role'].values[0] if authentication_status else None
-    # if role == "Administrator/in":
-    #     menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown',
-    #                     'Geographic Analytics', 'Leads Features', 'Update Leads']
-    # elif role == "Mitarbeiter/in":
-    #     menu_options = ['Leads Features', 'Update Leads', 'Property Breakdown',
-    #                     'Geographic Analytics', ]
-    # elif role == "Trackingpartner":
-    #     menu_options = ['Leads Features', 'Property Breakdown', 'Geographic Analytics']
-    # else:
-    #     menu_options = ['Login Required']
+    # menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown',
+    #                 'Geographic Analytics', 'Leads Features', 'Update Leads']
+    role = users_df[users_df['Email'] == username]['Role'].values[0] if authentication_status else None
+    if role == "Administrator/in":
+        menu_options = ['Overview', 'Marketing Attribution', 'Property Breakdown',
+                        'Geographic Analytics', 'Leads Features', 'Update Leads']
+        menu_icons = ['bi bi-graph-up', 'bi bi-bar-chart', 'bi bi-house',
+                      'bi bi-globe', 'bi bi-person-lines-fill', 'bi bi-arrow-clockwise']
+    elif role == "Mitarbeiter/in":
+        menu_options = ['Leads Features', 'Update Leads', 'Property Breakdown',
+                        'Geographic Analytics']
+        menu_icons = ['bi bi-person-lines-fill', 'bi bi-arrow-clockwise', 'bi bi-house','bi bi-globe']
+    elif role == "Trackingpartner":
+        menu_options = ['Leads Features', 'Property Breakdown', 'Geographic Analytics']
+        menu_icons = ['bi bi-person-lines-fill', 'bi bi-house', 'bi bi-globe']
+    else:
+        menu_options = ['Login Required']
+        menu_icons = ['bi bi-graph-up']
 
     menu = option_menu(menu_title=None, orientation="horizontal", menu_icon=None,
-                       icons = ['bi bi-graph-up', 'bi bi-bar-chart', 'bi bi-house',
-                                'bi bi-globe', 'bi bi-person-lines-fill', 'bi bi-arrow-clockwise'],
+                       icons = menu_icons,
                        options=menu_options)
 
     if menu == "Overview":
