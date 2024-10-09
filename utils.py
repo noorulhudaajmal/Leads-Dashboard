@@ -28,6 +28,27 @@ def process_data(data):
     data['property_area_range'] = pd.cut(data['Grundstueckflaeche'], bins=living_area_bins, labels=living_area_labels)
     data['Created_at'] = pd.to_datetime(data['Created_at'], errors='coerce')
     data['Postleitzahl_2'] = data['Postleitzahl'].apply(lambda x: f"DE-{str(x)[-2:]}")
+
+    for col in ['Wohneinheiten', 'Gewerbeeinheiten', 'Geschaeftsflaeche',
+                'Anhaenge/Dateien', 'Zimmeranzahl', 'Etagenanzahl',
+                'Mieteinnahmen (Kaltmiete)']:
+        data[col] = data[col].fillna(0)
+
+    for col in ["Bebaut", "Alleinlage", "Erschlossen", 'Gastwc', 'Vollvermietet',
+                'Balkon', 'Aufzug', 'Dachgeschoss', 'Keller', "100-Tage-Verkaufsgarantie",
+                "Verkaufspreis", "Wertanalyse", "Verrentung"]:
+        data[col] = data[col].fillna('Nein')
+
+    data['Parkplatz'] = data['Parkplatz'].fillna('nein')
+
+    for col in ['Dach', 'Fenster', 'Leitungen', 'Heizung', 'Fassade',
+                'Badezimmer', 'Innenausbau', 'Grundrissgestaltung']:
+        data[col] = data[col].fillna('keine')
+
+    for col in ['Immobilie und Lage', 'Objektinformationen', 'Modernisierungen',
+                'Schaeden/Maengel', 'Informationen zu besonderen Rechten', 'Nachricht']:
+        data[col] = data[col].fillna('No Information')
+
     return data
 
 
@@ -158,6 +179,6 @@ def format_date(date_value):
     return f"{formatted_day} {date_obj.strftime('%b, %Y')}"
 
 
-def save_data(df):
-    # conn.update(data=df, worksheet='leads')
-    df.to_csv("data/df.csv", index=False)
+def save_data(df, conn):
+    conn.update(data=df, worksheet='leads')
+    # df.to_csv("data/df.csv", index=False)

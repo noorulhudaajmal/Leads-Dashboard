@@ -134,32 +134,49 @@ def property_units_breakdown(data):
     return fig
 
 
-def lot_area_treemap(data):
+def leads_treemap(data):
     bundesland_data = data.groupby('bundesland').agg(
         Total_Leads=('Id', 'count'),                  # Count of leads (Id)
         Total_Cities=('Ort', 'nunique'),              # Count of unique cities (Ort)
-        Total_Lot_Area=('Grundstueckflaeche', 'sum') # Sum of lot area
+        Total_Lot_Area=('Grundstueckflaeche', 'sum')  # Sum of lot area
     ).reset_index()
-    fig = go.Figure(go.Treemap(
-        labels=bundesland_data['bundesland'],
-        parents=[''] * len(bundesland_data),
-        values=bundesland_data['Total_Leads'],
-        textinfo='label+value+percent entry',
-        hoverinfo='label+value+percent entry',
-        marker=dict(colors=colors),
-        customdata=bundesland_data[['bundesland', 'Total_Cities', 'Total_Leads', 'Total_Lot_Area']],  # Additional data for hover
-        hovertemplate='<b>%{customdata[0]}</b><br><br>' +
-                      'Total Cities: %{customdata[1]}<br>' +
-                      'Total Leads Registered: %{customdata[2]}<br>' +
-                      'Total Lot Area: ' + '%{customdata[3]:.2f}' + ' sqm<extra></extra>'
-    ))
-    fig = format_hover_layout(fig)
 
-    fig.update_layout(
-        title="Total Leads by State",
-        margin=dict(t=50, l=0, r=0, b=0),
-        height=500
-    )
+    # Check if there is only one state
+    if len(bundesland_data) == 1:
+        # Create a go.Indicator if there is only one state
+        fig = go.Figure(go.Indicator(
+            mode="number",
+            value=bundesland_data['Total_Leads'].iloc[0],
+            title={"text": f"Total Leads in {bundesland_data['bundesland'].iloc[0]}"},
+            number={'valueformat': ','}  # Format for thousands separator
+        ))
+        fig.update_layout(
+            title="Lead Count for Single State",
+            margin=dict(t=50, l=0, r=0, b=0),
+            height=300
+        )
+    else:
+        # Otherwise, create the treemap as usual
+        fig = go.Figure(go.Treemap(
+            labels=bundesland_data['bundesland'],
+            parents=[''] * len(bundesland_data),
+            values=bundesland_data['Total_Leads'],
+            textinfo='label+value+percent entry',
+            hoverinfo='label+value+percent entry',
+            marker=dict(colors=colors),
+            customdata=bundesland_data[['bundesland', 'Total_Cities', 'Total_Leads', 'Total_Lot_Area']],  # Additional data for hover
+            hovertemplate='<b>%{customdata[0]}</b><br><br>' +
+                          'Total Cities: %{customdata[1]}<br>' +
+                          'Total Leads Registered: %{customdata[2]}<br>' +
+                          'Total Lot Area: %{customdata[3]:.2f} sqm<extra></extra>'
+        ))
+        fig = format_hover_layout(fig)
+
+        fig.update_layout(
+            title="Total Leads by State",
+            margin=dict(t=50, l=0, r=0, b=0),
+            height=500
+        )
 
     return fig
 
@@ -478,8 +495,8 @@ def leads_registration_overtime(data):
     data = data.sort_values(by='Mon-Year')
     data['Mon-Year'] = data['Mon-Year'].dt.strftime('%b-%Y')
 
-    x_min = pd.to_datetime(data['Mon-Year']).min() - pd.DateOffset(months=5)
-    x_max = pd.to_datetime(data['Mon-Year']).max() + pd.DateOffset(months=1)
+    # x_min = pd.to_datetime(data['Mon-Year']).min() - pd.DateOffset(months=5)
+    # x_max = pd.to_datetime(data['Mon-Year']).max() + pd.DateOffset(months=1)
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -502,7 +519,7 @@ def leads_registration_overtime(data):
         xaxis_title="Time",
         yaxis_title="Leads Count",
         yaxis_range=[0, data['leads_count'].max() + 10],
-        xaxis_range=[x_min.strftime('%b-%Y'), x_max.strftime('%b-%Y')]
+        # xaxis_range=[x_min.strftime('%b-%Y'), x_max.strftime('%b-%Y')]
     )
 
     return fig
@@ -666,7 +683,5 @@ def germany_feature_conditions_choropleth(df):
     fig.update_geos(fitbounds="locations", visible=True)
 
     return fig
-
-
 
 

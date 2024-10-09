@@ -6,7 +6,7 @@ from streamlit_gsheets import GSheetsConnection
 from auth import authenticate_user, handle_authentication_status
 from css.streamlit_ui import main_styles, inner_styles, feature_html
 from views import features_view, geographic_analytics_view, property_breakdown_view, marketing_attribution_view, \
-    summary_view
+    summary_view, update_data_view
 
 pd.options.mode.chained_assignment = None
 
@@ -77,75 +77,5 @@ if authentication_status:
         features_view(data)
 
     if menu == "Update Leads":
+        update_data_view(data, conn)
 
-        row_1 = st.columns(3)
-        uploaded_file = st.file_uploader("Choose a CSV or Excel file to load data from",
-                                         type=["csv", "xlsx"])
-        if uploaded_file:
-            if uploaded_file.name.endswith('.csv'):
-                new_leads = pd.read_csv(uploaded_file)
-            else:
-                new_leads = pd.read_excel(uploaded_file)
-
-            st.dataframe(new_leads, use_container_width=True)
-
-        else:
-            row_2 = st.columns((1,5))
-            lead_id = st.selectbox(label="Lead Id", options=data['Id'].unique())
-            df = data[data['Id']==lead_id]
-
-        # lead_id = st.columns((1,1,5))[1].selectbox(label="Lead Id", options=data['Id'].unique())
-        #
-        # df = data[data['Id']==lead_id]
-
-        # row_2 = st.columns((1,5,1))
-        # edited_data = row_2[1].data_editor(df.transpose(), num_rows="dynamic",
-        #                                    use_container_width=True)
-        # new_data = edited_data.transpose()
-        #
-        # updated_data = data.copy()
-        # updated_data.loc[updated_data['Id'] == lead_id, new_data.columns] = new_data.values
-        #
-        # row_3 = st.columns((5,1,1))
-        # if row_3[1].button("Save Changes"):
-        #     save_data(updated_data)
-        #     st.success("Data saved successfully!")
-        #     st.rerun()
-        #
-        # st.write("---")
-        # st.subheader("Upload Leads Data")
-        # cols = st.columns(2)
-        # uploaded_file = cols[0].file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
-
-        # if uploaded_file:
-        #     if uploaded_file.name.endswith('.csv'):
-        #         new_leads = pd.read_csv(uploaded_file)
-        #     else:
-        #         new_leads = pd.read_excel(uploaded_file)
-        #
-        #     cols[1].dataframe(new_leads, use_container_width=True)
-        #
-        # if cols[0].button("Add") and uploaded_file:
-        #     if all(col in data.columns for col in new_leads.columns):
-        #         log_messages = []
-        #
-        #         for index, row in new_leads.iterrows():
-        #             if row['Id'] in updated_data['Id'].values:
-        #                 updated_data.loc[updated_data['Id'] == row['Id'], new_leads.columns] = row.values
-        #                 log_messages.append(f"Updated Lead ID: {row['Id']}")
-        #             else:
-        #                 updated_data = pd.concat([updated_data, pd.DataFrame([row])], ignore_index=True)
-        #                 log_messages.append(f"Added Lead ID: {row['Id']}")
-        #
-        #
-        #         save_data(updated_data)
-        #         cols[0].success("Leads data processed successfully!")
-        #
-        #         st.subheader("Log:")
-        #         for message in log_messages:
-        #             cols[0].info(message)
-        #
-        #     else:
-        #         st.error("Uploaded data columns do not match the existing data columns.")
-        # else:
-        #     st.error("No data uploaded.")
