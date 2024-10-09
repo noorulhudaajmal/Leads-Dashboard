@@ -171,7 +171,6 @@ def update_data_view(data, conn):
 
     row_2 = st.columns((1,5))
     lead_id = row_2[0].selectbox(label="Lead Id", options=ids_list, index=ids_list.index(lead_data['Id'].iloc[0]))
-    # lead_data = data[data['Id']==lead_id]
     st.session_state['lead_data'] = data[data['Id']==lead_id]
 
     data_display = st.columns((3,1))
