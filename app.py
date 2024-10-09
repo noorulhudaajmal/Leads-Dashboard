@@ -28,9 +28,15 @@ st.markdown(main_styles, unsafe_allow_html=True)
 
 # ------------------------------- Data Loading ---------------------------------
 conn = st.connection("gsheets", type=GSheetsConnection)
-data = conn.read(worksheet='leads')
-users_df = conn.read(worksheet='users')
 
+@st.cache_data(ttl=60)
+def load_data():
+    data = conn.read(worksheet='leads')
+    users_df = conn.read(worksheet='users')
+    return data, users_df
+
+# Fetch data
+data, users_df = load_data()
 data = process_data(data)
 
 # ------------------------------- Authentication --------------------------------
