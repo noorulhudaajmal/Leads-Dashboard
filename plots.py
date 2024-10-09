@@ -264,8 +264,8 @@ def leads_features_heatmap(df, col):
         z=transposed_data.values,
         x=heatmap_data[col],
         y=transposed_data.index,
-        hovertemplate='<b>%{x}</b><br>Feature: %{y} <br>Avg. Usage: %{customdata}<extra></extra>',
-        customdata=[[inverse_map(val) for val in row] for row in transposed_data.values],
+        hovertemplate='<b>%{x}</b><br>Feature: %{y} <br>Avg. Usage: %{z} years<extra></extra>',
+        customdata=[[inverse_map(val) for val in row][::-1] for row in transposed_data.values],
         colorscale=[
             [0.0, '#d9ed92'],  # Corresponds to '0-5 Jahre'
             [0.25, '#99d98c'],  # Corresponds to '5-10 Jahre'

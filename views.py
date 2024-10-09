@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import streamlit as st
+
+from data_processing import process_data
 from filters import get_filters_and_data, get_lead_feature_filters
 from streamlit_folium import folium_static
 from plots import leads_by_location, property_type_breakdown, property_units_breakdown, leads_treemap, \
@@ -172,9 +174,15 @@ def updatedata_view(data, conn):
         else:
             lead_data = pd.read_excel(uploaded_file)
 
-        if not all(col in data_fields for col in lead_data.columns):
-            row_1[2].error("Provide data file do not contain sufficient information.")
-            lead_data = data[data['Id'] == data['Id'].min()]
+        if all(col in data_fields for col in lead_data.columns):
+            # Append the new data to the existing data
+            lead_data = process_data(lead_data)
+            data = pd.concat([data, lead_data], ignore_index=True)
+            # row_1[2].success("Data loaded and appended successfully.")
+        else:
+            row_1[2].error("The provided data file does not contain sufficient information.")
+            lead_data = data[data['Id'] == data['Id'].min()]  # Reset lead_data to initial state if needed
+
 
     ids_list = sorted(list(set(list(data['Id'].unique()) + list(lead_data['Id'].unique()))))
 
