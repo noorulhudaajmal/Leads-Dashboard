@@ -3,14 +3,12 @@ import streamlit as st
 from filters import get_filters_and_data, get_lead_feature_filters
 from streamlit_folium import folium_static
 from plots import leads_by_location, property_type_breakdown, property_units_breakdown, leads_treemap, \
-    residential_units_pie_chart, commercial_units_pie_chart, lead_count_pie_chart, features_map, property_condition_map, \
+    residential_units_pie_chart, commercial_units_pie_chart, lead_count_pie_chart, property_condition_map, \
     conversion_channels_dist, features_table, leads_registration_overtime, geographic_listing_analytics, \
     leads_cluster_map, leads_features_heatmap, germany_feature_conditions_choropleth
 from utils import get_lead_info, display_lead_metrics, \
-    get_lead_location_info, format_date, display_plot_metrics, save_data
-from css.streamlit_ui import main_styles, inner_styles, feature_html
-import plotly.graph_objects as go
-
+    get_lead_location_info, format_date, save_data
+from css.streamlit_ui import feature_html
 
 
 def summary_view(data):

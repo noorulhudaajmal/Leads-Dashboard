@@ -6,7 +6,10 @@ from streamlit_gsheets import GSheetsConnection
 from auth import authenticate_user, handle_authentication_status
 from css.streamlit_ui import main_styles, inner_styles
 from views import features_view, geographic_analytics_view, property_breakdown_view, marketing_attribution_view, \
-    summary_view, updatedata_view
+    summary_view
+
+from views import updatedata_view
+
 
 pd.options.mode.chained_assignment = None
 
