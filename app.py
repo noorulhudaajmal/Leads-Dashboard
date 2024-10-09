@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 from streamlit_option_menu import option_menu as option_menu
-from utils import process_data
+from data_processing import process_data
 from streamlit_gsheets import GSheetsConnection
 from auth import authenticate_user, handle_authentication_status
 from css.streamlit_ui import main_styles, inner_styles

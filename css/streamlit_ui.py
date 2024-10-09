@@ -1,4 +1,6 @@
-
+"""
+Custom css for streamlit app.
+"""
 
 main_styles = """
     <style>

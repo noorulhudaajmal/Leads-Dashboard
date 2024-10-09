@@ -6,8 +6,6 @@ def authenticate_user(users_df):
     """
     handles user authentication using Streamlit Authenticator.
     """
-    # users_df = pd.read_csv('data/users2.csv')
-
     names = list(users_df['Name'].str.strip())
     usernames = list(users_df['Email'].str.strip())
     passwords = list(users_df['Hashed_Password'].str.strip())

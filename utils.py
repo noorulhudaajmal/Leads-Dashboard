@@ -4,55 +4,7 @@ import streamlit as st
 from datetime import datetime
 
 
-def process_data(data):
-    data = data.dropna(subset=['bundesland', 'Ort', 'Postleitzahl'])
-
-    if data['Grundstueckflaeche'].isnull().any():
-        mean_area = data['Grundstueckflaeche'].mean()
-        data['Grundstueckflaeche'] = data['Grundstueckflaeche'].fillna(mean_area)
-
-    data['Baujahr'] = pd.to_numeric(data['Baujahr'], errors='coerce')
-    data['Baujahr'] = data['Baujahr'].dropna().astype(int).round()
-    data = data[(data['Baujahr'] >= 1000) & (data['Baujahr'] <= 9999)]
-
-    living_area_bins = [0, 800, 1100, 1300, 1500, 2000, 3000, 12900]
-    living_area_labels = [
-        'Up to 800 sqm',
-        '800-1100 sqm',
-        '1100-1300 sqm',
-        '1300-1500 sqm',
-        '1500-2000 sqm',
-        '2000-3000 sqm',
-        'Above 3000 sqm'
-    ]
-    data['property_area_range'] = pd.cut(data['Grundstueckflaeche'], bins=living_area_bins, labels=living_area_labels)
-    data['Created_at'] = pd.to_datetime(data['Created_at'], errors='coerce')
-    data['Postleitzahl_2'] = data['Postleitzahl'].apply(lambda x: f"DE-{str(x)[-2:]}")
-
-    for col in ['Wohneinheiten', 'Gewerbeeinheiten', 'Geschaeftsflaeche',
-                'Anhaenge/Dateien', 'Zimmeranzahl', 'Etagenanzahl',
-                'Mieteinnahmen (Kaltmiete)']:
-        data[col] = data[col].fillna(0)
-
-    for col in ["Bebaut", "Alleinlage", "Erschlossen", 'Gastwc', 'Vollvermietet',
-                'Balkon', 'Aufzug', 'Dachgeschoss', 'Keller', "100-Tage-Verkaufsgarantie",
-                "Verkaufspreis", "Wertanalyse", "Verrentung"]:
-        data[col] = data[col].fillna('Nein')
-
-    data['Parkplatz'] = data['Parkplatz'].fillna('nein')
-
-    for col in ['Dach', 'Fenster', 'Leitungen', 'Heizung', 'Fassade',
-                'Badezimmer', 'Innenausbau', 'Grundrissgestaltung']:
-        data[col] = data[col].fillna('keine')
-
-    for col in ['Immobilie und Lage', 'Objektinformationen', 'Modernisierungen',
-                'Schaeden/Maengel', 'Informationen zu besonderen Rechten', 'Nachricht']:
-        data[col] = data[col].fillna('No Information')
-
-    return data
-
-
-def format_hover_layout(fig):
+def format_fig_layout(fig):
     """
     Updates the layout of a Plotly figure
 
@@ -60,7 +12,7 @@ def format_hover_layout(fig):
         fig (Figure): The Plotly figure to update.
 
     Returns:
-        Figure: The updated figure with updated hover-mode.
+        Figure: The updated figure with updated layout.
     """
     fig = fig.update_layout(
         height=400,
@@ -83,17 +35,6 @@ def format_hover_layout(fig):
     )
 
     return fig
-
-
-
-def verify_password(input_password, stored_hashed_password):
-    """
-    Simulate bcrypt check using the password hash logic.
-    """
-    return input_password == stored_hashed_password
-    # hashed_input = hashlib.sha256(input_password.encode()).hexdigest()
-    # return hashed_input == stored_hashed_password
-
 
 
 def get_lead_info(df):
@@ -167,6 +108,10 @@ def format_date(date_value):
     """
     Format the date from 'YYYY-MM-DD HH:MM:SS' to 'DDth Month, YYYY'
     """
+
+    if pd.isnull(date_value) or date_value == '':
+        return "Not Specified"
+
     if isinstance(date_value, pd.Timestamp):
         date_obj = date_value.to_pydatetime()  # Convert Timestamp to datetime
     else:

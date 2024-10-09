@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import streamlit as st
 from filters import get_filters_and_data, get_lead_feature_filters
@@ -43,11 +44,21 @@ def marketing_attribution_view(data):
     df = get_filters_and_data(data)
 
     metrics = st.columns(5)
-    metrics[0].metric(label="Total Leads", value=len(df))
-    metrics[1].metric(label="Total Residential Units", value=round(df['Wohneinheiten'].sum()))
-    metrics[2].metric(label="Total Commercial Units", value=round(df['Gewerbeeinheiten'].sum()))
-    metrics[3].metric(label="Avg. Living Area (sq meters)", value=f"{df['Wohnflaeche'].mean():.2f}")
-    metrics[4].metric(label="Avg. Lot Area (sq meters)", value=f"{df['Grundstueckflaeche'].mean():.2f}")
+
+    total_leads = len(df)
+    metrics[0].metric(label="Total Leads", value=total_leads if total_leads else 0)
+
+    total_residential_units = df['Wohneinheiten'].sum()
+    metrics[1].metric(label="Total Residential Units", value=round(total_residential_units) if not np.isnan(total_residential_units) else 0)
+
+    total_commercial_units = df['Gewerbeeinheiten'].sum()
+    metrics[2].metric(label="Total Commercial Units", value=round(total_commercial_units) if not np.isnan(total_commercial_units) else 0)
+
+    avg_living_area = df['Wohnflaeche'].mean()
+    metrics[3].metric(label="Avg. Living Area (sq meters)", value=f"{avg_living_area:.2f}" if not np.isnan(avg_living_area) else "0.00")
+
+    avg_lot_area = df['Grundstueckflaeche'].mean()
+    metrics[4].metric(label="Avg. Lot Area (sq meters)", value=f"{avg_lot_area:.2f}" if not np.isnan(avg_lot_area) else "0.00")
 
     row_1 = st.columns((4,3))
     row_1[0].plotly_chart(leads_registration_overtime(df), use_container_width=True)
@@ -185,7 +196,10 @@ def update_form(data, lead_data, lead_id, conn):
     with st.form(key='lead_form', border=False):
         title_cols = st.columns(4)
         id_input = title_cols[0].text_input(label='Id', value=f"{lead_id}", disabled=True)
-        created_on = title_cols[1].date_input(label='Created on', value=record['Created_at'], disabled=True)
+        if pd.isnull(record['Created_at']):
+            created_on = title_cols[1].date_input(label='Created on', value=None, disabled=True)
+        else:
+            created_on = title_cols[1].date_input(label='Created on', value=record['Created_at'], disabled=True)
 
         # Expander for Initials
         with st.expander("#### Initials"):
@@ -275,7 +289,7 @@ def update_form(data, lead_data, lead_id, conn):
             quelle = addons[0].selectbox("Quelle", options=sources, index=sources.index(record['Quelle']))
             dateien = addons[1].number_input("Anhaenge/Dateien", min_value=0, value=int(record['Anhaenge/Dateien']))
             parkplatz = addons[2].selectbox("Parkplatz", options=parking_spaces, index=parking_spaces.index(record['Parkplatz']))
-            kaltmiete = addons[3].number_input("Mieteinnahmen (Kaltmiete)", min_value=0, value=int(record['Mieteinnahmen (Kaltmiete)']))
+            kaltmiete = addons[3].text_input("Mieteinnahmen (Kaltmiete)", value=record['Mieteinnahmen (Kaltmiete)'])
 
         with st.expander("Descriptive Information"):
             cols = st.columns(2)
@@ -292,61 +306,67 @@ def update_form(data, lead_data, lead_id, conn):
         if submit_button:
             # lead_data.loc[lead_data['Id'] == lead_id, 'Id'] = id_input
             # lead_data.loc[lead_data['Id'] == lead_id, 'Created_at'] = created_on
-            lead_data.loc[lead_data['Id'] == lead_id, 'Telefon'] = telefon
-            lead_data.loc[lead_data['Id'] == lead_id, 'Strasse'] = strasse
-            lead_data.loc[lead_data['Id'] == lead_id, 'Postleitzahl'] = postleitzahl
-            lead_data.loc[lead_data['Id'] == lead_id, 'Ort'] = ort
-            lead_data.loc[lead_data['Id'] == lead_id, 'Hausnummer'] = hausnummer
-            lead_data.loc[lead_data['Id'] == lead_id, 'bundesland'] = bundesland
-            lead_data.loc[lead_data['Id'] == lead_id, 'Baujahr'] = yr_built
-            lead_data.loc[lead_data['Id'] == lead_id, 'Wohnflache'] = wohnflaeche
-            lead_data.loc[lead_data['Id'] == lead_id, 'Wohneinheiten'] = wohneinheiten
-            lead_data.loc[lead_data['Id'] == lead_id, 'Geschaftsflache'] = geschaeftsflaeche
-            lead_data.loc[lead_data['Id'] == lead_id, 'Gewerbeeinheiten'] = gewerbeeinheiten
-            lead_data.loc[lead_data['Id'] == lead_id, 'Grundstucksflache'] = grundstuecksflaeche
-            lead_data.loc[lead_data['Id'] == lead_id, 'Objekttyp'] = objekttyp
-            lead_data.loc[lead_data['Id'] == lead_id, 'Haustyp'] = haustyp
-            lead_data.loc[lead_data['Id'] == lead_id, 'Objektzustand'] = ovr_cond
-            lead_data.loc[lead_data['Id'] == lead_id, 'Ausstattung'] = ausstattung
-            lead_data.loc[lead_data['Id'] == lead_id, 'Aktuelle Nutzung'] = nutzung
-            lead_data.loc[lead_data['Id'] == lead_id, 'Bebaut'] = bebaut
-            lead_data.loc[lead_data['Id'] == lead_id, 'Alleinlage'] = alleinlage
-            lead_data.loc[lead_data['Id'] == lead_id, 'Erschlossen'] = erschlossen
-            lead_data.loc[lead_data['Id'] == lead_id, 'Gastwc'] = gastwc
-            lead_data.loc[lead_data['Id'] == lead_id, 'Vollvermietet'] = vollvermietet
-            lead_data.loc[lead_data['Id'] == lead_id, 'Balkon'] = balkon
-            lead_data.loc[lead_data['Id'] == lead_id, 'Aufzug'] = aufzug
-            lead_data.loc[lead_data['Id'] == lead_id, 'Dachgeschoss'] = dachgeschoss
-            lead_data.loc[lead_data['Id'] == lead_id, 'Keller'] = keller
-            lead_data.loc[lead_data['Id'] == lead_id, 'Dach'] = dach
-            lead_data.loc[lead_data['Id'] == lead_id, 'Fenster'] = fenster
-            lead_data.loc[lead_data['Id'] == lead_id, 'Leitungen'] = leitungen
-            lead_data.loc[lead_data['Id'] == lead_id, 'Heizung'] = heizung
-            lead_data.loc[lead_data['Id'] == lead_id, 'Fassade'] = fassade
-            lead_data.loc[lead_data['Id'] == lead_id, 'Badezimmer'] = badezimmer
-            lead_data.loc[lead_data['Id'] == lead_id, 'Innenausbau'] = innenausbau
-            lead_data.loc[lead_data['Id'] == lead_id, 'Grundrissgestaltung'] = grundrissgestaltung
-            lead_data.loc[lead_data['Id'] == lead_id, '100-Tage-Verkaufsgarantie'] = verkaufsgarantie
-            lead_data.loc[lead_data['Id'] == lead_id, 'Verkaufspreis'] = verkaufspreis
-            lead_data.loc[lead_data['Id'] == lead_id, 'Wertanalyse'] = wertanalyse
-            lead_data.loc[lead_data['Id'] == lead_id, 'Verrentung'] = verrentung
-            lead_data.loc[lead_data['Id'] == lead_id, 'Zimmeranzahl'] = zimmeranzahl
-            lead_data.loc[lead_data['Id'] == lead_id, 'Etagenanzahl'] = etagenanzahl
-            lead_data.loc[lead_data['Id'] == lead_id, 'Quelle'] = quelle
-            lead_data.loc[lead_data['Id'] == lead_id, 'Anhaenge/Dateien'] = dateien
-            lead_data.loc[lead_data['Id'] == lead_id, 'Parkplatz'] = parkplatz
-            lead_data.loc[lead_data['Id'] == lead_id, "Mieteinnahmen (Kaltmiete)"] = kaltmiete
-            lead_data.loc[lead_data['Id'] == lead_id, "Immobilie und Lage"] = immobilie_und_lage
-            lead_data.loc[lead_data['Id'] == lead_id, "Objektinformationen"] = objektinformationen
-            lead_data.loc[lead_data['Id'] == lead_id, "Modernisierungen"] = modernisierungen
-            lead_data.loc[lead_data['Id'] == lead_id, "Schaeden/Maengel"] = maengel
-            lead_data.loc[lead_data['Id'] == lead_id, "Informationen zu besonderen Rechten"] = rechten
-            lead_data.loc[lead_data['Id'] == lead_id, "Nachricht"] = nachricht
+            updates = {
+                'Telefon': telefon,
+                'Strasse': strasse,
+                'Postleitzahl': postleitzahl,
+                'Ort': ort,
+                'Hausnummer': hausnummer,
+                'bundesland': bundesland,
+                'Baujahr': yr_built,
+                'Wohnflache': wohnflaeche,
+                'Wohneinheiten': wohneinheiten,
+                'Geschaftsflache': geschaeftsflaeche,
+                'Gewerbeeinheiten': gewerbeeinheiten,
+                'Grundstucksflache': grundstuecksflaeche,
+                'Objekttyp': objekttyp,
+                'Haustyp': haustyp,
+                'Objektzustand': ovr_cond,
+                'Ausstattung': ausstattung,
+                'Aktuelle Nutzung': nutzung,
+                'Bebaut': bebaut,
+                'Alleinlage': alleinlage,
+                'Erschlossen': erschlossen,
+                'Gastwc': gastwc,
+                'Vollvermietet': vollvermietet,
+                'Balkon': balkon,
+                'Aufzug': aufzug,
+                'Dachgeschoss': dachgeschoss,
+                'Keller': keller,
+                'Dach': dach,
+                'Fenster': fenster,
+                'Leitungen': leitungen,
+                'Heizung': heizung,
+                'Fassade': fassade,
+                'Badezimmer': badezimmer,
+                'Innenausbau': innenausbau,
+                'Grundrissgestaltung': grundrissgestaltung,
+                '100-Tage-Verkaufsgarantie': verkaufsgarantie,
+                'Verkaufspreis': verkaufspreis,
+                'Wertanalyse': wertanalyse,
+                'Verrentung': verrentung,
+                'Zimmeranzahl': zimmeranzahl,
+                'Etagenanzahl': etagenanzahl,
+                'Quelle': quelle,
+                'Anhaenge/Dateien': dateien,
+                "Mieteinnahmen (Kaltmiete)": kaltmiete,
+                "Immobilie und Lage": immobilie_und_lage,
+                "Objektinformationen": objektinformationen,
+                "Modernisierungen": modernisierungen,
+                "Schaeden/Maengel": maengel,
+                "Informationen zu besonderen Rechten": rechten,
+                "Nachricht": nachricht,
+                "Parkplatz": parkplatz
+            }
+
+            for col, value in updates.items():
+                lead_data.loc[lead_data['Id'] == lead_id, col] = value
 
             st.session_state['lead_data'] = lead_data
 
             updated_data = data.copy()
-            updated_data.loc[updated_data['Id'] == lead_id, st.session_state['lead_data'].columns] = st.session_state['lead_data'].values
+            columns_to_update = list(updates.keys())
+            updated_data.loc[updated_data['Id'] == lead_id, columns_to_update] = st.session_state['lead_data'][columns_to_update].values
 
             st.success("Lead information updated successfully!")
             save_data(updated_data, conn)

@@ -4,7 +4,7 @@ import requests
 import plotly.express as px
 import folium
 from folium.plugins import MarkerCluster
-from utils import format_hover_layout
+from utils import format_fig_layout
 import streamlit as st
 
 colors = ["#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51", "#84a59d", "#006d77",
@@ -36,7 +36,7 @@ def leads_by_location(data):
             height=30
         ))]
     )
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
 
     fig.update_layout(
         title="Leads by Location",
@@ -52,6 +52,25 @@ def property_type_breakdown(data):
     pivot_data = type_data.pivot(index='Objekttyp', columns='Haustyp', values='Id').fillna(0)
     wrapped_labels = [label.replace(' ', '<br>') if len(label) > 10 else label for label in pivot_data.index]  # Example wrapping logic
 
+    if len(pivot_data) == 1 and pivot_data.sum(axis=1).iloc[0] > 0:
+        single_category = pivot_data.index[0]
+        total_leads = pivot_data.sum(axis=1).iloc[0]
+        fig = show_indicator(total_leads, single_category, "Property Type Breakdown with House Types")
+        fig.update_layout(height=500)
+        return fig
+
+    elif len(pivot_data) == 1 and pivot_data.sum(axis=1).iloc[0] == 0:
+        single_category = pivot_data.index[0]
+        fig = show_indicator(0, "No Units", "Property Type Breakdown with House Types")
+        fig.update_layout(height=500)
+        return fig
+
+    elif len(pivot_data) == 0:
+        fig = show_indicator(0, "No Units", "Property Type Breakdown with House Types")
+        fig.update_layout(height=500)
+        return fig
+
+
     fig = go.Figure()
     for i, house_type in enumerate(pivot_data.columns):
         fig.add_trace(go.Bar(
@@ -62,11 +81,11 @@ def property_type_breakdown(data):
             orientation='h'
         ))
 
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
     fig.update_layout(
         title="Property Type Breakdown with House Types",
-        xaxis_title="Property Type (Objekttyp)",
-        yaxis_title="Number of Leads",
+        yaxis_title="Property Type (Objekttyp)",
+        xaxis_title="Number of Leads",
         barmode='stack',
         # legend_title="House Type (Haustyp)",
         legend=dict(orientation="h", xanchor='center', x=0.35, y=-0.25),
@@ -94,7 +113,34 @@ def property_units_breakdown(data):
     units_data['Wohneinheiten'] = units_data['Wohneinheiten'].fillna(0)
     units_data['Gewerbeeinheiten'] = units_data['Gewerbeeinheiten'].fillna(0)
 
+    if len(units_data)==1 and (units_data.iloc[0]['Id'] == units_data.iloc[0]['Total']):
+        single_category = units_data['Objekttyp'].iloc[0]
+        single_count = units_data['Total'].iloc[0]
+        fig = show_indicator(single_count, single_category,"Total Residential and Commercial Units by Property Type")
+        fig.update_layout(height=500)
+        return fig
+    elif len(units_data)==1 and (units_data.iloc[0]['Id'] != units_data.iloc[0]['Total']):
+        pie_data = units_data.iloc[0]
+        labels = ['Residential Units', 'Commercial Units']
+        values = [pie_data['Wohneinheiten'], pie_data['Gewerbeeinheiten']]
 
+        fig = go.Figure(go.Pie(
+            labels=labels,
+            values=values,
+            textinfo='percent',
+            hoverinfo='label+value',
+            marker=dict(colors=[colors[1], colors[5]]),
+            hole=0.6,
+            hovertemplate='<b>%{label}</b><br>Total Units= %{value} (%{percent})<extra></extra>'
+        ))
+        fig.update_layout(
+            title=f"{pie_data['Objekttyp']} - Residential vs Commercial Units",
+            height=500,
+            margin=dict(t=50, l=0, r=0, b=0),
+            legend=dict(orientation="h", xanchor='center', x=0.5, y=-0.25),
+
+        )
+        return fig
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
@@ -120,11 +166,11 @@ def property_units_breakdown(data):
         marker_color=colors[5],
         orientation='h'
     ))
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
     fig.update_layout(
         title="Total Residential and Commercial Units by Property Type",
-        xaxis_title="Property Type (Objekttyp)",
-        yaxis_title="Total Units",
+        yaxis_title="Property Type (Objekttyp)",
+        xaxis_title="Total Units",
         barmode='stack',
         legend=dict(orientation="h", xanchor='center', x=0.25, y=-0.25),
         hovermode='y unified',
@@ -153,7 +199,9 @@ def leads_treemap(data):
         fig.update_layout(
             title="Lead Count for Single State",
             margin=dict(t=50, l=0, r=0, b=0),
-            height=300
+            height=500,
+            plot_bgcolor='rgba(173, 216, 230, 0.8)',
+            paper_bgcolor='rgba(173, 216, 230, 0.8)',
         )
     else:
         # Otherwise, create the treemap as usual
@@ -170,7 +218,7 @@ def leads_treemap(data):
                           'Total Leads Registered: %{customdata[2]}<br>' +
                           'Total Lot Area: %{customdata[3]:.2f} sqm<extra></extra>'
         ))
-        fig = format_hover_layout(fig)
+        fig = format_fig_layout(fig)
 
         fig.update_layout(
             title="Total Leads by State",
@@ -232,7 +280,7 @@ def leads_features_heatmap(df, col):
         ),
     ))
 
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
 
     fig.update_layout(
         title=f'Average Feature Values by {col}',
@@ -246,10 +294,18 @@ def leads_features_heatmap(df, col):
     return fig
 
 
-
 def lead_count_pie_chart(data):
     lead_data = data['Objekttyp'].value_counts().reset_index()
     lead_data.columns = ['Objekttyp', 'Lead Count']
+
+    non_zero_units = lead_data[lead_data['Lead Count']>0]
+
+    if len(lead_data) == 0 or lead_data['Lead Count'].sum()==0:
+        return show_indicator(0, "No units","Property Type Distribution")
+    elif len(lead_data) == 1 or len(non_zero_units)==1:
+        single_category = lead_data['Objekttyp'].iloc[0]
+        single_count = lead_data['Lead Count'].iloc[0]
+        return show_indicator(single_count, single_category,"Property Type Distribution")
 
     fig = go.Figure(go.Pie(
         labels=lead_data['Objekttyp'],
@@ -268,7 +324,7 @@ def lead_count_pie_chart(data):
         margin=dict(t=50, l=0, r=0, b=0),
     )
 
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
 
     return fig
 
@@ -276,6 +332,14 @@ def lead_count_pie_chart(data):
 def residential_units_pie_chart(data):
     residential_data = data.groupby('Objekttyp')['Wohneinheiten'].sum().reset_index()
     residential_data = residential_data.sort_values(by='Wohneinheiten', ascending=False)
+
+    non_zero_units = residential_data[residential_data['Wohneinheiten']>0]
+    if len(residential_data) == 0 or residential_data['Wohneinheiten'].sum()==0:
+        return show_indicator(0, "No units", "Residential Units Distribution")
+    elif len(residential_data) == 1 or len(non_zero_units)==1:
+        single_category = residential_data['Objekttyp'].iloc[0]
+        single_count = residential_data['Wohneinheiten'].iloc[0]
+        return show_indicator(single_count, single_category, "Residential Units Distribution")
 
     fig = go.Figure(go.Pie(
         labels=residential_data['Objekttyp'],
@@ -293,7 +357,7 @@ def residential_units_pie_chart(data):
         legend=dict(orientation="h", xanchor='center', x=0.25, y=-0.15),
         margin=dict(t=50, l=0, r=0, b=0),
     )
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
 
     return fig
 
@@ -301,6 +365,15 @@ def residential_units_pie_chart(data):
 def commercial_units_pie_chart(data):
     commercial_data = data.groupby('Objekttyp')['Gewerbeeinheiten'].sum().reset_index()
     commercial_data = commercial_data.sort_values(by='Gewerbeeinheiten', ascending=False)
+
+    non_zero_units = commercial_data[commercial_data['Gewerbeeinheiten']>0]
+    if len(commercial_data) == 0 or commercial_data['Gewerbeeinheiten'].sum()==0:
+        return show_indicator(0, "No units", "Commercial Units Distribution")
+    # elif len(commercial_data) == 1 or len(non_zero_units)==1:
+    #     single_category = commercial_data['Objekttyp'].iloc[0]
+    #     single_count = commercial_data['Gewerbeeinheiten'].iloc[0]
+    #     return show_indicator(single_count, single_category, "Commercial Units Distribution")
+
     fig = go.Figure(go.Pie(
         labels=commercial_data['Objekttyp'],
         values=commercial_data['Gewerbeeinheiten'],
@@ -317,7 +390,22 @@ def commercial_units_pie_chart(data):
         legend=dict(orientation="h", xanchor='center', x=0.25, y=-0.15),
         margin=dict(t=50, l=0, r=0, b=0),
     )
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
+
+    return fig
+
+
+def show_indicator(value, label, title):
+    fig = go.Figure(go.Indicator(
+        mode="number",
+        value=value,
+        title={'text': label},
+    ))
+    fig = format_fig_layout(fig)
+    fig.update_layout(margin=dict(t=50, l=0, r=0, b=0),
+                      plot_bgcolor='rgba(173, 216, 230, 0.6)',
+                      paper_bgcolor='rgba(173, 216, 230, 0.6)',
+                      title=title)
 
     return fig
 
@@ -334,7 +422,7 @@ def conversion_channels_dist(data):
         hovertemplate='<b>%{label}</b> <br>Total Conversions= %{value} (%{percent})<extra></extra>',
     ))
 
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
     fig.update_layout(
         title='Conversion Channels Distribution',
         legend=dict(orientation="h", xanchor='center', x=0.45, y=-0.15),
@@ -495,9 +583,6 @@ def leads_registration_overtime(data):
     data = data.sort_values(by='Mon-Year')
     data['Mon-Year'] = data['Mon-Year'].dt.strftime('%b-%Y')
 
-    # x_min = pd.to_datetime(data['Mon-Year']).min() - pd.DateOffset(months=5)
-    # x_max = pd.to_datetime(data['Mon-Year']).max() + pd.DateOffset(months=1)
-
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=data['Mon-Year'],
@@ -512,14 +597,13 @@ def leads_registration_overtime(data):
         hovertemplate='Registered Leads= %{text}<extra></extra>',
     ))
 
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
     fig.update_layout(
         height=350,
         title="Leads Trend",
         xaxis_title="Time",
         yaxis_title="Leads Count",
         yaxis_range=[0, data['leads_count'].max() + 10],
-        # xaxis_range=[x_min.strftime('%b-%Y'), x_max.strftime('%b-%Y')]
     )
 
     return fig
@@ -558,7 +642,7 @@ def geographic_listing_analytics(df):
                     visible=True,
                     projection_scale=10.5,
                     center={"lat": 51.1657, "lon": 10.4515})
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
 
     fig.update_layout(margin={"r":0,"t":50,"l":0,"b":0}, height=500,
                       coloraxis_colorbar={
@@ -666,7 +750,7 @@ def germany_feature_conditions_choropleth(df):
         opacity=0.8
     )
 
-    fig = format_hover_layout(fig)
+    fig = format_fig_layout(fig)
 
     fig.update_layout(
         mapbox=dict(bearing=-10),
