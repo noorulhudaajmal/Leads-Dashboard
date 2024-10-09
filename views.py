@@ -150,7 +150,7 @@ def features_view(data):
     display_lead_info(filtered_data)
 
 
-def update_data_view(data, conn):
+def updatedata_view(data, conn):
     data_fields = list(data.columns)
     lead_data = data[data['Id'] == data['Id'].min()]
 
@@ -174,8 +174,6 @@ def update_data_view(data, conn):
     st.session_state['lead_data'] = data[data['Id']==lead_id]
 
     data_display = st.columns((3,1))
-
-
     with data_display[0]:
         update_form(data,st.session_state['lead_data'], lead_id, conn)
     with data_display[1]:
